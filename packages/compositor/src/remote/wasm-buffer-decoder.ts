@@ -55,58 +55,70 @@ type FrameState = {
 
 const decoders: { [key: string]: WasmH264DecoderContext } = {}
 
-const opaqueWorker = new Promise<Worker>((resolve, reject) => {
-  const h264NALDecoderWorker: Worker = new Worker(new URL('./H264NALDecoder.worker.js', import.meta.url), {
-    name: 'h264NALDecoderOpaque',
-    type: 'module',
-  })
-  h264NALDecoderWorker.addEventListener('message', (e) => {
-    const message = e.data as H264NALDecoderWorkerMessage
-    switch (message.type) {
-      case 'pictureReady':
-        decoders[message.renderStateId].onOpaquePictureDecoded(message)
-        break
-      case 'decoderReady':
-        h264NALDecoderWorker.postMessage({})
-        resolve(h264NALDecoderWorker)
-        break
-      case 'error':
-        const error = new Error(message.data as unknown as string)
-        if (decoders[message.renderStateId]) {
-          decoders[message.renderStateId].onOpaqueError(error)
-        } else {
-          reject(error)
-        }
-        break
-    }
-  })
-})
+// The H.264 wasm decoder workers (and their ~1.8MB ffmpeg payload) are created
+// LAZILY, on first actual wasm h264 decode. Sessions that use the WebCodecs
+// decoder — or never decode remote h264 at all (e.g. purely web:// apps) — never
+// load them. (Previously these were module-level `new Worker(...)` constants,
+// which spawned both workers just by importing this module.)
+let _opaqueWorker: Promise<Worker> | undefined
+let _alphaWorker: Promise<Worker> | undefined
 
-const alphaWorker = new Promise<Worker>((resolve, reject) => {
-  const h264NALDecoderWorker: Worker = new Worker(new URL('./H264NALDecoder.worker.js', import.meta.url), {
-    name: 'h264NALDecoderAlpha',
-    type: 'module',
-  })
-  h264NALDecoderWorker.addEventListener('message', (e) => {
-    const message = e.data as H264NALDecoderWorkerMessage
-    switch (message.type) {
-      case 'pictureReady':
-        decoders[message.renderStateId].onAlphaPictureDecoded(message)
-        break
-      case 'decoderReady':
-        resolve(h264NALDecoderWorker)
-        break
-      case 'error':
-        const error = new Error(message.data as unknown as string)
-        if (decoders[message.renderStateId]) {
-          decoders[message.renderStateId].onAlphaError(error)
-        } else {
-          reject(error)
-        }
-        break
-    }
-  })
-})
+function getOpaqueWorker(): Promise<Worker> {
+  return (_opaqueWorker ??= new Promise<Worker>((resolve, reject) => {
+    const h264NALDecoderWorker: Worker = new Worker(new URL('./H264NALDecoder.worker.js', import.meta.url), {
+      name: 'h264NALDecoderOpaque',
+      type: 'module',
+    })
+    h264NALDecoderWorker.addEventListener('message', (e) => {
+      const message = e.data as H264NALDecoderWorkerMessage
+      switch (message.type) {
+        case 'pictureReady':
+          decoders[message.renderStateId].onOpaquePictureDecoded(message)
+          break
+        case 'decoderReady':
+          h264NALDecoderWorker.postMessage({})
+          resolve(h264NALDecoderWorker)
+          break
+        case 'error':
+          const error = new Error(message.data as unknown as string)
+          if (decoders[message.renderStateId]) {
+            decoders[message.renderStateId].onOpaqueError(error)
+          } else {
+            reject(error)
+          }
+          break
+      }
+    })
+  }))
+}
+
+function getAlphaWorker(): Promise<Worker> {
+  return (_alphaWorker ??= new Promise<Worker>((resolve, reject) => {
+    const h264NALDecoderWorker: Worker = new Worker(new URL('./H264NALDecoder.worker.js', import.meta.url), {
+      name: 'h264NALDecoderAlpha',
+      type: 'module',
+    })
+    h264NALDecoderWorker.addEventListener('message', (e) => {
+      const message = e.data as H264NALDecoderWorkerMessage
+      switch (message.type) {
+        case 'pictureReady':
+          decoders[message.renderStateId].onAlphaPictureDecoded(message)
+          break
+        case 'decoderReady':
+          resolve(h264NALDecoderWorker)
+          break
+        case 'error':
+          const error = new Error(message.data as unknown as string)
+          if (decoders[message.renderStateId]) {
+            decoders[message.renderStateId].onAlphaError(error)
+          } else {
+            reject(error)
+          }
+          break
+      }
+    })
+  }))
+}
 
 function createWasmH264DecoderContext(surfaceH264DecodeId: string): WasmH264DecoderContext {
   const h264BufferContentDecoder = new WasmH264DecoderContext(surfaceH264DecodeId)
@@ -144,7 +156,7 @@ class WasmH264DecoderContext implements H264DecoderContext {
 
     if (encodedFrame.pixelContent.alpha) {
       const h264Nal = encodedFrame.pixelContent.alpha.slice()
-      alphaWorker.then((worker) => {
+      getAlphaWorker().then((worker) => {
         this.decodingAlphaContentSerialsQueue = [...this.decodingAlphaContentSerialsQueue, contentSerial]
         // create a copy of the arraybuffer, so we can zero-copy the opaque part (after zero-copying, we can no longer use the underlying array in any way)
         worker.postMessage(
@@ -163,7 +175,7 @@ class WasmH264DecoderContext implements H264DecoderContext {
     }
 
     const h264Nal = encodedFrame.pixelContent.opaque
-    opaqueWorker.then((worker) => {
+    getOpaqueWorker().then((worker) => {
       this.decodingBufferContentSerialsQueue = [...this.decodingBufferContentSerialsQueue, contentSerial]
       worker.postMessage(
         {
@@ -210,11 +222,11 @@ class WasmH264DecoderContext implements H264DecoderContext {
 
     frameState.resolve({
       close() {
-        opaqueWorker.then((worker) => {
+        getOpaqueWorker().then((worker) => {
           worker.postMessage({ type: 'closeFrame', renderStateId, data: opaqueFramePtr })
         })
         if (alphaFramePtr) {
-          alphaWorker.then((worker) => {
+          getAlphaWorker().then((worker) => {
             worker.postMessage({ type: 'closeFrame', renderStateId, data: alphaFramePtr })
           })
         }
@@ -256,13 +268,13 @@ class WasmH264DecoderContext implements H264DecoderContext {
   }
 
   destroy(): void {
-    opaqueWorker.then((worker) =>
+    getOpaqueWorker().then((worker) =>
       worker.postMessage({
         type: 'release',
         renderStateId: this.surfaceH264DecodeId,
       }),
     )
-    alphaWorker.then((worker) =>
+    getAlphaWorker().then((worker) =>
       worker.postMessage({
         type: 'release',
         renderStateId: this.surfaceH264DecodeId,

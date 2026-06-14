@@ -58,6 +58,23 @@ export class DefaultPointerGrab implements PointerGrab {
   }
 
   button(event: ButtonEvent): void {
+    // server-side decoration: a press on a titlebar drags or closes the window,
+    // and is not delivered to the client.
+    if (!event.released) {
+      const hit = this.pointer.seat.session.renderer.pickDecoration(this.pointer)
+      const desktopSurface = hit?.view.surface.role?.desktopSurface
+      if (hit && desktopSurface) {
+        if (hit.region === 'close') {
+          desktopSurface.requestClose()
+          // we sent an event (xdg_toplevel.close) outside a client request; flush it
+          this.pointer.seat.session.flush()
+        } else {
+          desktopSurface.startInteractiveMove()
+        }
+        return
+      }
+    }
+
     this.pointer.sendButton(event)
     if (this.pointer.buttonCount === 0 && event.released) {
       const view = this.pointer.seat.session.renderer.pickView(this.pointer)
@@ -659,6 +676,28 @@ export class Pointer implements WlPointerRequests {
         linuxInput[event.buttonCode],
         event.released ? WlPointerButtonState.released : WlPointerButtonState.pressed,
       )
+    }
+  }
+
+  /**
+   * Deliver a pointer motion directly to a known surface at surface-local coords,
+   * bypassing scene pickView. Used by alternative shells (DOM-windows mode) where the
+   * browser already hit-tested which window the event belongs to.
+   */
+  forwardLocalMotion(view: View, time: number, sx: number, sy: number): void {
+    if (this.focus?.surface !== view.surface) {
+      this.setFocus(view, sx, sy) // sends wl_pointer.enter + frame
+      return
+    }
+    this.sx = sx
+    this.sy = sy
+    this.motion(time, sx, sy)
+    this.sendFrame()
+  }
+
+  forwardLocalLeave(view: View): void {
+    if (this.focus?.surface === view.surface) {
+      this.clearFocus() // sends wl_pointer.leave + frame
     }
   }
 

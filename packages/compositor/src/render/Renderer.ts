@@ -20,7 +20,8 @@ import { clearBrowserDndImage, setBrowserDndImage } from '../browser/dnd'
 import BufferImplementation from '../BufferImplementation'
 import { Callback } from '../Callback'
 import { queueCancellableMicrotask } from '../Loop'
-import { Point } from '../math/Point'
+import { ORIGIN, Point } from '../math/Point'
+import { BORDER, TITLEBAR_HEIGHT } from './Decoration'
 import Output from '../Output'
 import { isDecodedFrame } from '../remote/DecodedFrame'
 import Session from '../Session'
@@ -174,6 +175,43 @@ export default class Renderer {
     })
   }
 
+  /**
+   * Front-to-back hit test for server-side decorations. Returns the topmost
+   * titlebar hit, or undefined if the topmost thing at this point is a surface
+   * (so the click belongs to the client) or empty space.
+   */
+  pickDecoration(scenePoint: Point): { view: View; region: 'close' | 'titlebar' } | undefined {
+    for (const view of [...this.viewStack].reverse()) {
+      if (!view.mapped) {
+        continue
+      }
+      const surfacePoint = view.sceneToViewSpace(scenePoint)
+      if (view.surface.isWithinInputRegion(surfacePoint)) {
+        return undefined // a surface is the topmost thing here
+      }
+      const decoration = view.decoration
+      const size = view.surface.size
+      if (decoration && size) {
+        const topLeft = view.viewToSceneSpace(ORIGIN)
+        const decoLeft = topLeft.x - BORDER
+        const decoTop = topLeft.y - TITLEBAR_HEIGHT
+        const fullW = size.width + 2 * BORDER
+        if (
+          scenePoint.x >= decoLeft &&
+          scenePoint.x < decoLeft + fullW &&
+          scenePoint.y >= decoTop &&
+          scenePoint.y < decoTop + TITLEBAR_HEIGHT
+        ) {
+          const region = decoration.hitTest(scenePoint.x - decoLeft, scenePoint.y - decoTop, fullW)
+          if (region !== 'none') {
+            return { view, region }
+          }
+        }
+      }
+    }
+    return undefined
+  }
+
   hideCursor(): void {
     hideBrowserCursor()
   }
@@ -262,6 +300,14 @@ export default class Renderer {
     } else if (isImageBitmapBufferContent(bufferContents)) {
       for (const renderState of Object.values(view.renderStates)) {
         renderState.scene[bufferContents.mimeType](bufferContents, renderState)
+      }
+      // hand the current frame to a DOM-windows shell, if one is listening
+      if (view.mapped && this.session.userShell.events.surfaceContentUpdated) {
+        const { width, height } = bufferContents.size
+        this.session.userShell.events.surfaceContentUpdated(
+          { id: view.surface.resource.id, client: { id: view.surface.resource.client.id } },
+          { bitmap: bufferContents.pixelContent, width, height },
+        )
       }
     } else if (buffer !== undefined && bufferContents === undefined) {
       if (view.mapped && buffer && view.surface.damaged) {

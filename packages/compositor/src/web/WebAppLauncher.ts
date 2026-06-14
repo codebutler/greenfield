@@ -146,11 +146,19 @@ export class WebAppLauncher implements AppLauncher {
 
     fetch(url).then((response) => {
       response.text().then((html) => {
-        if (url.pathname.endsWith('.html') || url.pathname.endsWith('.htm')) {
-          const lastSlash = url.pathname.lastIndexOf('/')
-          url.pathname = url.pathname.substring(0, lastSlash)
+        // Determine the directory the app is served from and build an ABSOLUTE base
+        // href (origin included). srcdoc documents resolve relative URLs against the
+        // embedder's base URL, so a path-only href breaks when the web app is served
+        // from a different origin (e.g. a separate dev server). Using the absolute
+        // origin makes the app's relative resources load from the app's own server.
+        let dirPath = url.pathname
+        if (dirPath.endsWith('.html') || dirPath.endsWith('.htm')) {
+          dirPath = dirPath.substring(0, dirPath.lastIndexOf('/') + 1)
+        } else if (!dirPath.endsWith('/')) {
+          dirPath = dirPath + '/'
         }
-        webAppIFRame.srcdoc = html.replace(/(<head[^>]*>\s*)/i, `$1<base href="${url.pathname}/" />\r`)
+        const baseHref = `${url.origin}${dirPath}`
+        webAppIFRame.srcdoc = html.replace(/(<head[^>]*>\s*)/i, `$1<base href="${baseHref}" />\r`)
         document.body.appendChild(webAppIFRame)
         webAppContext.state = 'open'
         webAppContext.onStateChange('open')

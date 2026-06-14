@@ -9,6 +9,7 @@ import { PointerGrab } from '../Pointer'
 import Surface from '../Surface'
 import { toCompositorSurface } from '../UserShellApi'
 import { setCursor } from '../browser/pointer'
+import Decoration from '../render/Decoration'
 import { DesktopSurface, DesktopSurfaceRole } from './Desktop'
 
 class ResizeGrab implements PointerGrab {
@@ -223,10 +224,27 @@ export class FloatingDesktopSurface implements DesktopSurface {
     readonly role: DesktopSurfaceRole,
   ) {
     this.compositorSurface = toCompositorSurface(this)
+    // give every top-level a server-side decoration (titlebar + frame)
+    this.role.view.decoration = Decoration.create()
   }
 
   init() {
     // noop
+  }
+
+  /** Start moving this window from a compositor-side titlebar drag (no client move request). */
+  startInteractiveMove(): void {
+    if (this.surface.destroyed || this.grabbed || this.role.queryFullscreen() || this.role.queryMaximized()) {
+      return
+    }
+    // Seat already set pointer.grabPoint to the press location on button-down.
+    this.activate() // raise + focus
+    MoveGrab.create(this).start()
+  }
+
+  /** Ask the client to close (titlebar × button). It's a request; the client decides. */
+  requestClose(): void {
+    this.role.requestClose()
   }
 
   move(grabSerial: number): void {
@@ -383,6 +401,8 @@ export class FloatingDesktopSurface implements DesktopSurface {
     if (--this.focusCount === 0) {
       this.role.configureActivated(false)
       this.surface.session.userShell.events.surfaceActivationUpdated?.(this.compositorSurface, false)
+      this.role.view.decoration?.setActive(false)
+      this.surface.session.renderer.render()
     }
   }
 
@@ -390,6 +410,8 @@ export class FloatingDesktopSurface implements DesktopSurface {
     if (this.focusCount++ === 0) {
       this.role.configureActivated(true)
       this.surface.session.userShell.events.surfaceActivationUpdated?.(this.compositorSurface, true)
+      this.role.view.decoration?.setActive(true)
+      this.surface.session.renderer.render()
     }
   }
 
@@ -452,11 +474,21 @@ export class FloatingDesktopSurface implements DesktopSurface {
 
   removed(): void {
     this.surface.session.renderer.removeTopLevelView(this.role.view)
+    this.removeDecoration()
+    // repaint so the closed window's pixels are cleared from the scene
+    this.surface.session.renderer.render()
     this.surface.session.userShell.events.surfaceDestroyed?.(this.compositorSurface)
   }
 
   setTitle(title: string): void {
     this.surface.session.userShell.events.surfaceTitleUpdated?.(this.compositorSurface, title)
+    this.role.view.decoration?.setTitle(title)
+    this.surface.session.renderer.render()
+  }
+
+  removeDecoration(): void {
+    this.role.view.decoration?.destroy()
+    this.role.view.decoration = undefined
   }
 
   setAppId(appId: string): void {

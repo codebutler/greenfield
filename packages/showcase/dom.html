@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Greenfield — DOM windows mode</title>
+    <script src="/coi-serviceworker.js"></script>
+    <link rel="stylesheet" href="/src/dom.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar">
+        <span class="brand">Greenfield<span class="dim"> · DOM-windows mode · each window is its own canvas</span></span>
+        <span class="spacer"></span>
+        <button class="sample" data-app="samples/simple-shm/app.html">simple-shm <em>SHM</em></button>
+        <button class="sample" data-app="samples/webgl/app.html">webgl <em>GL</em></button>
+        <button class="sample" data-app="gfapp/gf-hello.html">gf-hello <em>C/WASM</em></button>
+        <button class="sample" data-app="eyes/eyes.html">eyes <em>C/WASM</em></button>
+        <span class="spacer"></span>
+        <a class="modelink" href="/">◂ canvas mode</a>
+        <span id="status" class="dim">booting…</span>
+      </header>
+      <div id="stage">
+        <div id="hint" class="dim">Click a sample. Each window is a real DOM element with a &lt;canvas&gt; body — drag the titlebar, click × to close. (Input into apps is phase 2.)</div>
+      </div>
+    </div>
+    <!-- hidden driver canvas: keeps the compositor's render loop + frame callbacks alive -->
+    <canvas id="driver" width="1280" height="800"></canvas>
+    <script type="module" src="/src/dom.ts"></script>
+  </body>
+</html>

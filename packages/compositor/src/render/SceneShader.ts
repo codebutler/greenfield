@@ -15,11 +15,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Greenfield.  If not, see <https://www.gnu.org/licenses/>.
 
-import { mat4ToArray } from '../math/Mat4'
+import { Mat4, mat4ToArray } from '../math/Mat4'
 import { Size } from '../math/Size'
 import View from '../View'
 import Program from './Program'
 import RenderState from './RenderState'
+import Texture from './Texture'
 import ShaderCompiler from './ShaderCompiler'
 import { FRAGMENT_ARGB8888, VERTEX_QUAD_TRANSFORM } from './ShaderSources'
 
@@ -164,6 +165,34 @@ class SceneShader {
     )
     this.gl.vertexAttribPointer(this.shaderArgs.a_position, 2, this.gl.FLOAT, false, 16, 0)
     this.gl.vertexAttribPointer(this.shaderArgs.a_texCoord, 2, this.gl.FLOAT, false, 16, 8)
+  }
+
+  /** Draw an arbitrary texture as a quad at the given scene transform (used for decorations). */
+  drawTexture(texture: Texture, transform: Mat4): void {
+    const { width, height } = texture.size
+    this.gl.activeTexture(this.gl.TEXTURE0)
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture.texture)
+    this.gl.uniform1i(this.shaderArgs.u_texture, 0)
+
+    this.program.setUniformM4(this.shaderArgs.u_transform, mat4ToArray(transform))
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer)
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      // prettier-ignore
+      new Float32Array([
+        0, 0, 0, 0,
+        width, 0, 1, 0,
+        width, height, 1, 1,
+        width, height, 1, 1,
+        0, height, 0, 1,
+        0, 0, 0, 0,
+      ]),
+      this.gl.STATIC_DRAW,
+    )
+    this.gl.vertexAttribPointer(this.shaderArgs.a_position, 2, this.gl.FLOAT, false, 16, 0)
+    this.gl.vertexAttribPointer(this.shaderArgs.a_texCoord, 2, this.gl.FLOAT, false, 16, 8)
+    this.draw()
   }
 
   draw(): void {

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Greenfield — WASM sample showcase</title>
+    <!-- Make the page cross-origin isolated (SharedArrayBuffer) even on a plain
+         static host that doesn't send COOP/COEP. Must run first; it reloads once. -->
+    <script src="/coi-serviceworker.js"></script>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar">
+        <span class="brand">Greenfield<span class="dim"> · in-browser Wayland · pick a sample</span></span>
+        <span class="spacer"></span>
+        <button class="sample" data-app="samples/simple-shm/app.html">simple-shm <em>SHM</em></button>
+        <button class="sample" data-app="samples/webgl/app.html">webgl <em>GL</em></button>
+        <button class="sample" data-app="gfapp/gf-hello.html">gf-hello <em>C/WASM</em></button>
+        <button class="sample" data-app="eyes/eyes.html">eyes <em>C/WASM</em></button>
+        <span class="spacer"></span>
+        <a class="modelink" href="/dom.html" style="color:#38bdf8;text-decoration:none;font-size:13px">DOM mode ▸</a>
+        <span id="status" class="dim">booting…</span>
+      </header>
+      <div id="stage">
+        <canvas id="output" width="1280" height="800"></canvas>
+        <div id="hint" class="dim">Click a sample above. Drag a window by its body to move it; drag an edge to resize.</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

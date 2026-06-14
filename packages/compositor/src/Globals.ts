@@ -7,6 +7,7 @@ import Session from './Session'
 import Shell from './Shell'
 import Subcompositor from './Subcompositor'
 import XdgWmBase from './XdgWmBase'
+import XdgDecorationManager from './XdgDecorationManager'
 import { WebBuffersFactory } from './web/WebBuffersFactory'
 import { Shm } from './Shm'
 
@@ -21,6 +22,7 @@ class Globals implements CompositorGlobals {
 
     const shell = Shell.create(session)
     const xdgWmBase = XdgWmBase.create(session, seat)
+    const xdgDecorationManager = XdgDecorationManager.create(session)
 
     const webBuffersFactory = WebBuffersFactory.create(session)
 
@@ -33,6 +35,7 @@ class Globals implements CompositorGlobals {
       subcompositor,
       shell,
       xdgWmBase,
+      xdgDecorationManager,
       webBuffersFactory,
     )
   }
@@ -46,6 +49,7 @@ class Globals implements CompositorGlobals {
     public readonly subcompositor: Subcompositor,
     public readonly shell: Shell,
     public readonly xdgWmBase: XdgWmBase,
+    public readonly xdgDecorationManager: XdgDecorationManager,
     public readonly webBuffersFactory: WebBuffersFactory,
     public outputs: Output[] = [],
   ) {}
@@ -68,6 +72,7 @@ class Globals implements CompositorGlobals {
     this.shell.registerGlobal(this.session.display.registry)
     this.subcompositor.registerGlobal(this.session.display.registry)
     this.xdgWmBase.registerGlobal(this.session.display.registry)
+    this.xdgDecorationManager.registerGlobal(this.session.display.registry)
     this.webBuffersFactory.registerGlobal(this.session.display.registry)
   }
 
@@ -79,6 +84,7 @@ class Globals implements CompositorGlobals {
     this.shell.unregisterGlobal()
     this.subcompositor.unregisterGlobal()
     this.xdgWmBase.unregisterGlobal()
+    this.xdgDecorationManager.unregisterGlobal()
     this.webBuffersFactory.unregisterGlobal()
   }
 }

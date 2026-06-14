@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU Affero General Public Licensef
 // along with Greenfield.  If not, see <https://www.gnu.org/licenses/>.
 
+import { translation } from '../math/Mat4'
+import { ORIGIN } from '../math/Point'
 import { createRect } from '../math/Rect'
+import { BORDER, TITLEBAR_HEIGHT } from './Decoration'
 import Output from '../Output'
 import { createPixmanRegion, initRect } from '../Region'
 import { DecodedFrame } from '../remote/DecodedFrame'
@@ -154,6 +157,17 @@ export class Scene {
     const renderState = view.renderStates[this.id]
     if (renderState && view.mapped) {
       view.prepareRender?.(renderState)
+      // draw the server-side decoration (titlebar + frame) behind/around the surface
+      if (view.decoration) {
+        const decorationTexture = view.decoration.textureFor(this, renderState.size)
+        if (decorationTexture) {
+          const topLeft = view.viewToSceneSpace(ORIGIN)
+          this.sceneShader.drawTexture(
+            decorationTexture,
+            translation(topLeft.x - BORDER, topLeft.y - TITLEBAR_HEIGHT),
+          )
+        }
+      }
       this.sceneShader.updateViewData(view, renderState)
       this.sceneShader.draw()
     }

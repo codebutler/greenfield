@@ -35,6 +35,15 @@ export class AlwaysFullscreenDesktopSurface implements DesktopSurface {
     }
   }
 
+  // fullscreen surfaces are not decorated, so these are never reached via a titlebar
+  startInteractiveMove(): void {
+    // noop: fullscreen windows cannot be moved
+  }
+
+  requestClose(): void {
+    this.role.requestClose()
+  }
+
   move(grabSerial: number): void {
     if (this.floatingDesktopSurface !== undefined) {
       this.floatingDesktopSurface.move(grabSerial)

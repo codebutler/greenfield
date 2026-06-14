@@ -1,0 +1,25 @@
+<html lang="en">
+<head>
+    <title>gf-hello debug</title>
+</head>
+<body>
+<pre id="log"></pre>
+<script>
+    function _gflog(kind, text) {
+        try {
+            var el = document.getElementById('log');
+            if (el) el.textContent += '[' + kind + '] ' + text + '\n';
+            // also bubble to the parent compositor page for good measure
+            if (window.parent) window.parent.postMessage({ gfhello_log: '[' + kind + '] ' + text }, '*');
+        } catch (e) {}
+    }
+    var Module = {
+        print: function (text) { console.log(text); _gflog('out', text); },
+        printErr: function (text) { console.error(text); _gflog('err', text); },
+        onAbort: function (what) { _gflog('abort', what); },
+    };
+    window.addEventListener('error', function (e) { _gflog('window.error', (e && e.message) || String(e)); });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

@@ -49,6 +49,10 @@ export interface DesktopSurface {
   setXWaylandPosition(position: Point): void
   popupGrab(serial: number): void
 
+  // server-side decoration interactions (titlebar drag / close button)
+  startInteractiveMove(): void
+  requestClose(): void
+
   init(): void
 
   surface: Surface

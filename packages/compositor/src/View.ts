@@ -19,11 +19,14 @@ import { IDENTITY, invert, Mat4, timesMat4, timesPoint, timesRectToBoundingBox, 
 import { minusPoint, ORIGIN, plusPoint, Point } from './math/Point'
 import { RectWithInfo, withSizeAndPosition } from './math/Rect'
 import { copyTo, createPixmanRegion, destroyPixmanRegion, fini, initRect, intersect, notEmpty } from './Region'
+import type Decoration from './render/Decoration'
+import { TITLEBAR_HEIGHT } from './render/Decoration'
 import RenderState from './render/RenderState'
 import { Scene } from './render/Scene'
 import Surface from './Surface'
 
 export default class View {
+  private static cascadeIndex = 0
   readonly pixmanRegion: number = createPixmanRegion()
   relevantScene?: Scene
   regionRect: RectWithInfo = withSizeAndPosition({
@@ -33,6 +36,8 @@ export default class View {
     y1: 0,
   })
   prepareRender?: (renderState: RenderState) => void
+  /** server-side decoration (titlebar/frame) for top-level views; undefined otherwise */
+  decoration?: Decoration
   private inverseTransformation: Mat4
   private readonly destroyPromise: Promise<void>
   // @ts-ignore
@@ -139,8 +144,14 @@ export default class View {
     if (this.parent) {
       // TODO center of parent
     } else {
-      // TODO set position center of the screen within surface geometry & size constraints
-      this.positionOffset = minusPoint(ORIGIN, this.surface.geometry.position)
+      // Leave room at the top for the server-side titlebar, and cascade windows
+      // so multiple toplevels don't stack exactly on top of each other.
+      const base = minusPoint(ORIGIN, this.surface.geometry.position)
+      const step = View.cascadeIndex++ % 6
+      this.positionOffset = {
+        x: base.x + 30 + step * 28,
+        y: base.y + TITLEBAR_HEIGHT + 14 + step * 28,
+      }
     }
   }
 
