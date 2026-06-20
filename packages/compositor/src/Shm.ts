@@ -50,7 +50,17 @@ export class Shm implements WlShmRequests {
   }
 
   createPool(resource: WlShmResource, id: number, fd: FD, size: number): void {
-    const poolMemory: Uint8Array = fd as Uint8Array
+    let poolMemory: Uint8Array = fd as Uint8Array
+    // The wire `size` is the authoritative pool size per the wl_shm protocol.
+    // The backing fd may be page-rounded LARGER (posix_fallocate / ftruncate
+    // round up to a page), so clamping the mapping to `size` keeps the pool's
+    // byteLength == the declared size. Without this a later legitimate
+    // wl_shm_pool.resize(newSize) where size < newSize <= rounded-fd-size trips
+    // the spurious "Can't grow pool" guard (newSize < data.byteLength). The view
+    // shares the fd's ArrayBuffer, so a real grow can still extend up to it.
+    if (size > 0 && size < poolMemory.byteLength) {
+      poolMemory = new Uint8Array(poolMemory.buffer, poolMemory.byteOffset, size)
+    }
     const wlShmPoolResource = new WlShmPoolResource(resource.client, id, resource.version)
     const shmPool = new ShmPool(wlShmPoolResource, poolMemory)
     wlShmPoolResource.implementation = shmPool
