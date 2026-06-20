@@ -1,0 +1,21 @@
+packages/compositor/src/UserShellApi.ts
+  s_2759e1f8dbb051::t_fea136e1fea7a4 100-104
+  s_2759e1f8dbb051::t_96cd5381a1bf8c 97-99,105
+  s_2759e1f8dbb051::t_d94aa0e996e8e8 59-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "5217f3b1d4e1b7a36540caee83fd535d340b1307",
+  "prompts": {},
+  "sessions": {
+    "s_2759e1f8dbb051": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8228b50b-0db4-4cce-bcbf-adbba2856d3b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
