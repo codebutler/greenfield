@@ -56,6 +56,13 @@ export interface UserShellApiActions {
 
   activateSurface(compositorSurface: CompositorSurface): void
 
+  // Gracefully ask a surface's toplevel to close — sends the xdg_toplevel.close
+  // protocol event to the client (vs closeClient, which tears down the server
+  // side of the connection). Alternative shells (DOM-windows mode) call this when
+  // their own window chrome's close button is clicked so the client can run its
+  // own shutdown (save prompts, etc.) and exit cleanly.
+  requestSurfaceClose(compositorSurface: CompositorSurface): void
+
   // Direct input delivery for alternative shells (DOM-windows mode), where the browser
   // has already hit-tested which window an event belongs to. Coords are surface-local.
   pointerMotion(compositorSurface: CompositorSurface, x: number, y: number): void
@@ -86,6 +93,15 @@ export function createUserShellApi(session: Session): UserShellApi {
       activateSurface(compositorSurface: CompositorSurface) {
         const surface = lookupSurface(session, compositorSurface)
         surface.role?.desktopSurface?.activate()
+      },
+      requestSurfaceClose(compositorSurface: CompositorSurface) {
+        const surface = lookupSurface(session, compositorSurface)
+        surface.role?.desktopSurface?.requestClose()
+        // Flush so the queued xdg_toplevel.close event is actually written to the
+        // client's connection now (→ onFlush → the guest), the same way the input
+        // actions flush. Without this the close sits in the outbound buffer until
+        // some other event flushes it, and the client never sees it.
+        session.flush()
       },
       initScene: (canvasCreator: () => { canvas: HTMLCanvasElement; id: string }) =>
         addInputOutput(session, canvasCreator),
