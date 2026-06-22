@@ -1,0 +1,19 @@
+packages/compositor/src/Session.ts
+  s_37624bdee0fea2::t_890b955dfdfa48 157,159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "283079d67671c30ef64cab948b322f43fdc8296c",
+  "prompts": {},
+  "sessions": {
+    "s_37624bdee0fea2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "33cc0b52-d86a-405f-86f4-f8a033f7c462",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
