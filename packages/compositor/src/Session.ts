@@ -154,9 +154,9 @@ class Session implements CompositorSession {
     const webCodecSupport = await webVideoDecoderConfig()
     if (webCodecSupport) {
       decoderFactory = webCodecFrameDecoderFactory(webCodecSupport)
-      logger.info('Will use H.264 WebCodecs Decoder.')
+      logger.debug('Will use H.264 WebCodecs Decoder.')
     } else {
-      logger.info('Will use H.264 WASM Decoder.')
+      logger.debug('Will use H.264 WASM Decoder.')
       decoderFactory = createWasmFrameDecoder
     }
 
