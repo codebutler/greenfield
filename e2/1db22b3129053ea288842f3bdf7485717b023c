@@ -1,0 +1,25 @@
+packages/compositor/src/Pointer.ts
+  s_cd1a77be509bb9::t_33771f8362b2cb 732-734
+  s_cd1a77be509bb9::t_2d07b0bb475ae2 33
+  s_cd1a77be509bb9::t_c41cd66805cb1e 698-731,735-736
+packages/compositor/src/UserShellApi.ts
+  s_cd1a77be509bb9::t_69e3bc124f0373 20
+  s_cd1a77be509bb9::t_5a88c751d1291c 71
+  s_cd1a77be509bb9::t_72835928b359c9 147-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "e21db22b3129053ea288842f3bdf7485717b023c",
+  "prompts": {},
+  "sessions": {
+    "s_cd1a77be509bb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0c5a43f4-e9f7-42ad-a7e0-5192593fabfb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
