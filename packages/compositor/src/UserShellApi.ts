@@ -17,6 +17,7 @@
 
 import { WlSurfaceResource } from '@gfld/compositor-protocol'
 import { addInputOutput } from './browser/input'
+import { ButtonCode } from './ButtonEvent'
 import { createKeyEventFromKeyboardEvent } from './KeyEvent'
 import { DesktopSurface } from './desktop/Desktop'
 import { CompositorClient, CompositorConfiguration, CompositorSurface } from './index'
@@ -67,6 +68,7 @@ export interface UserShellApiActions {
   // has already hit-tested which window an event belongs to. Coords are surface-local.
   pointerMotion(compositorSurface: CompositorSurface, x: number, y: number): void
   pointerLeave(compositorSurface: CompositorSurface): void
+  pointerButton(compositorSurface: CompositorSurface, buttonCode: ButtonCode, released: boolean): void
   notifyKey(keyboardEvent: KeyboardEvent, pressed: boolean): void
 }
 
@@ -139,6 +141,13 @@ export function createUserShellApi(session: Session): UserShellApi {
         const view = lookupSurface(session, compositorSurface)?.role?.view
         if (view) {
           session.globals.seat.pointer.forwardLocalLeave(view)
+          session.flush()
+        }
+      },
+      pointerButton: (compositorSurface, buttonCode, released) => {
+        const view = lookupSurface(session, compositorSurface)?.role?.view
+        if (view) {
+          session.globals.seat.pointer.forwardLocalButton(view, Date.now(), buttonCode, released)
           session.flush()
         }
       },

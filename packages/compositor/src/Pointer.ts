@@ -30,7 +30,7 @@ import {
   WlSurfaceResource,
 } from '@gfld/compositor-protocol'
 import { AxisEvent } from './AxisEvent'
-import { ButtonEvent } from './ButtonEvent'
+import { ButtonCode, ButtonEvent } from './ButtonEvent'
 import { DataSource } from './DataSource'
 import { KeyboardGrab } from './Keyboard'
 import { KeyEvent } from './KeyEvent'
@@ -693,6 +693,45 @@ export class Pointer implements WlPointerRequests {
     this.sy = sy
     this.motion(time, sx, sy)
     this.sendFrame()
+  }
+
+  /**
+   * Deliver a pointer button press/release directly to the focused surface,
+   * bypassing scene pickView/decoration hit-testing. Used by alternative shells
+   * (DOM-windows mode) where the browser already hit-tested the window and a
+   * preceding forwardLocalMotion set the pointer focus. Maintains buttonCount /
+   * grabButton like the seat's notifyButton so the implicit pointer grab stays
+   * consistent.
+   */
+  forwardLocalButton(view: View, time: number, buttonCode: ButtonCode, released: boolean): void {
+    if (this.focus?.surface !== view.surface) {
+      return // a forwardLocalMotion must set focus on this view before the click
+    }
+    if (released) {
+      if (this.buttonCount === 0) {
+        return
+      }
+      this.buttonCount--
+    } else {
+      if (this.buttonCount === 0) {
+        this.grabButton = buttonCode
+        this.grabTime = time
+      }
+      this.buttonCount++
+    }
+    const event: ButtonEvent = {
+      x: this.sx,
+      y: this.sy,
+      timestamp: time,
+      buttonCode,
+      released,
+      buttons: 0,
+      sceneId: '',
+    }
+    this.sendButton(event)
+    if (!released && this.buttonCount === 1) {
+      this.grabSerial = this.seat.session.display.eventSerial
+    }
   }
 
   forwardLocalLeave(view: View): void {
