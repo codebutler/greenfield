@@ -729,6 +729,7 @@ export class Pointer implements WlPointerRequests {
       sceneId: '',
     }
     this.sendButton(event)
+    this.sendFrame() // wl_pointer.frame required by v5+ clients (GTK) to batch events
     if (!released && this.buttonCount === 1) {
       this.grabSerial = this.seat.session.display.eventSerial
     }
