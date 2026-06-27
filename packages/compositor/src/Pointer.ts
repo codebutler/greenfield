@@ -713,8 +713,13 @@ export class Pointer implements WlPointerRequests {
    * consistent.
    */
   forwardLocalButton(view: View, time: number, buttonCode: ButtonCode, released: boolean): void {
-    if (this.focus?.surface !== view.surface) {
-      return // a forwardLocalMotion must set focus on this view before the click
+    // When a non-default grab is active (popup/move/resize/drag) the grab owns
+    // routing — deliver through it like the browser path (Seat.notifyButton),
+    // regardless of which view the browser hit. Only the direct (default-grab)
+    // path requires a preceding forwardLocalMotion to have set focus on this view.
+    const grabbing = this.grab !== this.defaultGrab
+    if (!grabbing && this.focus?.surface !== view.surface) {
+      return
     }
     // Maintain scene-space coords from the current surface-local pos so a popup
     // grab started right after this press can pickView the correct view.
@@ -723,11 +728,16 @@ export class Pointer implements WlPointerRequests {
       this.x = scene.x
       this.y = scene.y
     }
+    // Maintain buttonCount UNCONDITIONALLY (matching notifyButton). The old code
+    // only ran this after the focus guard, so a release delivered for a different
+    // view than the current focus (focus moved to a popup) was dropped and the
+    // count stuck > 0, serial-rejecting later grabs.
     if (released) {
-      if (this.buttonCount === 0) {
+      this.buttonCount--
+      if (this.buttonCount < 0) {
+        this.buttonCount = 0
         return
       }
-      this.buttonCount--
     } else {
       if (this.buttonCount === 0) {
         this.grabButton = buttonCode
@@ -744,7 +754,11 @@ export class Pointer implements WlPointerRequests {
       buttons: 0,
       sceneId: '',
     }
-    this.sendButton(event)
+    if (grabbing) {
+      this.grab.button(event)
+    } else {
+      this.sendButton(event)
+    }
     this.sendFrame() // wl_pointer.frame required by v5+ clients (GTK) to batch events
     if (!released && this.buttonCount === 1) {
       this.grabSerial = this.seat.session.display.eventSerial
