@@ -173,12 +173,19 @@ export default class XdgPopup implements XdgPopupRequests, SurfaceRole, DesktopS
   }
 
   private sendConfigure() {
-    this.resource.configure(
-      this.geometry.position.x,
-      this.geometry.position.y,
-      this.geometry.size.width,
-      this.geometry.size.height,
-    )
+    // xdg_popup.configure x,y is "the position the popup was placed at, relative
+    // to the upper-left of the parent surface's WINDOW GEOMETRY" — i.e. the actual
+    // anchor placement, NOT the popup's own geometry offset (which is ~0,0).
+    // surfaceSpaceAnchorPoint is that placement in the parent's SURFACE space
+    // (it adds the parent's window-geometry offset / CSD shadow), so subtract that
+    // offset back out. Clients use this to lay out / scroll their popup content:
+    // sending (0,0) made GtkComboBox menus scroll past their items (they thought
+    // the menu was at the parent's top-left instead of at the combo).
+    const anchor = this.positionerState.surfaceSpaceAnchorPoint(this.parent)
+    const parentGeo = this.parent.surface.geometry.position
+    const x = anchor ? anchor.x - parentGeo.x : this.geometry.position.x
+    const y = anchor ? anchor.y - parentGeo.y : this.geometry.position.y
+    this.resource.configure(x, y, this.geometry.size.width, this.geometry.size.height)
     return {
       serial: this.xdgSurface.resource.client.display.nextEventSerial(),
     }
