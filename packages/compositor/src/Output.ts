@@ -108,7 +108,7 @@ export default class Output implements WlOutputRequests {
   private emitMode(wlOutputResource: WlOutputResource) {
     const flags = WlOutputMode.current
     // the refresh rate is impossible to query without manual measuring, which is error prone.
-    const refresh = 60
+    const refresh = 60000
     wlOutputResource.mode(flags, this.canvas.width, this.canvas.height, refresh)
   }
 
