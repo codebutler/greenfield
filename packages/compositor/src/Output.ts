@@ -107,8 +107,14 @@ export default class Output implements WlOutputRequests {
 
   private emitMode(wlOutputResource: WlOutputResource) {
     const flags = WlOutputMode.current
-    // the refresh rate is impossible to query without manual measuring, which is error prone.
-    const refresh = 60
+    // wl_output.mode's `refresh` argument is in milli-hertz, not hertz (see the
+    // wayland protocol: "vertical refresh rate in mHz"). 60 Hz is therefore 60000.
+    // Sending 60 advertises a 0.06 Hz display, which makes clients that derive a
+    // frame interval from the mode (e.g. GTK's GdkFrameClock: refresh_interval =
+    // 1e9 / refresh_rate) compute a ~16.7 *second* frame interval and effectively
+    // freeze all frame-clock-driven animation/repaints.
+    // The exact refresh is impossible to query without manual measuring, so assume 60 Hz.
+    const refresh = 60000
     wlOutputResource.mode(flags, this.canvas.width, this.canvas.height, refresh)
   }
 
