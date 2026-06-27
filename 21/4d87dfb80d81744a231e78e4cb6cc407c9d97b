@@ -1,0 +1,20 @@
+packages/compositor/src/Pointer.ts
+  s_d580a0e82f6259::t_6a1e6ce99fc877 716-722,731-734,736-738,757-760
+  s_d580a0e82f6259::t_417208571fd949 761
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "214d87dfb80d81744a231e78e4cb6cc407c9d97b",
+  "prompts": {},
+  "sessions": {
+    "s_d580a0e82f6259": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7838adf-a5d7-4f15-84a0-3e0baf17456b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
