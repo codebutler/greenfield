@@ -88,6 +88,14 @@ export default class XdgPopup implements XdgPopupRequests, SurfaceRole, DesktopS
     if (seat.popupGrab !== undefined) {
       seat.popupGrab.removeSurface(this.desktopSurface)
     }
+    // Tell a DOM-windows shell to drop the popup overlay. surfaceDestroyed
+    // otherwise only fires for desktop surfaces (toplevels), so a dismissed popup
+    // would leave its overlay canvas behind.
+    const surf = this.xdgSurface.surface
+    this.session.userShell.events.surfaceDestroyed?.({
+      id: surf.resource.id,
+      client: { id: surf.resource.client.id },
+    })
     this.xdgSurface.configureIdle?.()
     this.xdgSurface.configureList = []
     this.xdgSurface.surface.role = undefined
