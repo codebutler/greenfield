@@ -38,7 +38,16 @@ export interface UserShellApiEvents {
   // ImageBitmap. Used by the DOM-windows shell to paint each window's own canvas.
   surfaceContentUpdated?: (
     compositorSurface: CompositorSurface,
-    content: { bitmap: ImageBitmap; width: number; height: number },
+    content: {
+      bitmap: ImageBitmap
+      width: number
+      height: number
+      // Present for a child surface (xdg_popup / subsurface): the parent surface
+      // id + the child's offset relative to the parent (scene pixels). Lets a
+      // DOM-windows shell render the popup as a positioned overlay. Undefined for
+      // toplevels.
+      parent?: { id: number; client: string; dx: number; dy: number }
+    },
   ) => void
 
   notify?: (variant: 'warn' | 'info' | 'error', message: string) => void

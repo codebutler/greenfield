@@ -102,12 +102,25 @@ export default class Renderer {
     if (view.surface.state.bufferContents) {
       const cursorBufferContents = view.surface.state.bufferContents
 
-      const cursorImage = cursorBufferContents.pixelContent as { bitmap: ImageBitmap | undefined } | undefined
-      if (cursorImage === undefined || cursorImage.bitmap === undefined) {
+      // wl_shm / canvas buffers expose the decoded ImageBitmap DIRECTLY as
+      // pixelContent (updateRenderStatesPixelContent passes
+      // `bitmap: bufferContents.pixelContent`); only decoded video frames wrap it
+      // in a `.bitmap` field. Accept both — otherwise a wl_shm cursor (every GTK
+      // app's cursor) has no `.bitmap`, updateCursor bails, and the pointer is
+      // left hidden (cursor: none).
+      const cursorImage = cursorBufferContents.pixelContent as
+        | { bitmap: ImageBitmap | undefined }
+        | ImageBitmap
+        | undefined
+      const bitmap =
+        cursorImage && (cursorImage as { bitmap?: ImageBitmap }).bitmap !== undefined
+          ? (cursorImage as { bitmap: ImageBitmap }).bitmap
+          : (cursorImage as ImageBitmap | undefined)
+      if (bitmap === undefined || bitmap === null) {
         return
       }
 
-      setBrowserCursor(cursorImage.bitmap, hotspot)
+      setBrowserCursor(bitmap, hotspot)
     } else {
       this.hideCursor()
     }
@@ -304,9 +317,24 @@ export default class Renderer {
       // hand the current frame to a DOM-windows shell, if one is listening
       if (view.mapped && this.session.userShell.events.surfaceContentUpdated) {
         const { width, height } = bufferContents.size
+        // For a child view (xdg_popup / subsurface) include its parent surface id +
+        // offset relative to the parent (scene pixels) so the shell can render the
+        // popup as a positioned overlay. Toplevels have no parent view → undefined.
+        let parent: { id: number; client: string; dx: number; dy: number } | undefined
+        const pv = view.parent
+        if (pv) {
+          const a = view.viewToSceneSpace({ x: 0, y: 0 })
+          const b = pv.viewToSceneSpace({ x: 0, y: 0 })
+          parent = {
+            id: pv.surface.resource.id,
+            client: pv.surface.resource.client.id,
+            dx: a.x - b.x,
+            dy: a.y - b.y,
+          }
+        }
         this.session.userShell.events.surfaceContentUpdated(
           { id: view.surface.resource.id, client: { id: view.surface.resource.client.id } },
-          { bitmap: bufferContents.pixelContent, width, height },
+          { bitmap: bufferContents.pixelContent, width, height, parent },
         )
       }
     } else if (buffer !== undefined && bufferContents === undefined) {

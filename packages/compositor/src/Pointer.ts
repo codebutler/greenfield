@@ -693,6 +693,15 @@ export class Pointer implements WlPointerRequests {
     this.sy = sy
     this.motion(time, sx, sy)
     this.sendFrame()
+    // The bridge feeds surface-local coords only; maintain scene-space x/y (used
+    // by pickView) so seat grabs work, and refresh the active grab's focus when a
+    // non-default grab (popup/move/resize/drag) is up.
+    const scene = view.viewToSceneSpace({ x: sx, y: sy })
+    this.x = scene.x
+    this.y = scene.y
+    if (this.grab !== this.defaultGrab) {
+      this.grab.focus()
+    }
   }
 
   /**
@@ -706,6 +715,13 @@ export class Pointer implements WlPointerRequests {
   forwardLocalButton(view: View, time: number, buttonCode: ButtonCode, released: boolean): void {
     if (this.focus?.surface !== view.surface) {
       return // a forwardLocalMotion must set focus on this view before the click
+    }
+    // Maintain scene-space coords from the current surface-local pos so a popup
+    // grab started right after this press can pickView the correct view.
+    {
+      const scene = view.viewToSceneSpace({ x: this.sx, y: this.sy })
+      this.x = scene.x
+      this.y = scene.y
     }
     if (released) {
       if (this.buttonCount === 0) {

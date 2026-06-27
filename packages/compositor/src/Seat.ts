@@ -654,15 +654,20 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
       return false
     }
 
+    // Set the grab client + initialUp BEFORE startGrab(): startGrab() synchronously
+    // runs grab.focus(), which compares the picked view's client against
+    // popupGrab.client. With a stationary pointer (the DOM-windows input bridge
+    // delivers no follow-up motion to re-run focus()), setting client afterwards
+    // left focus cleared and the popup was dismissed.
+    this.popupGrab.initialUp = this.pointer.buttonCount === 0
+    this.popupGrab.client = client
+
     if (!(this.keyboard.grab instanceof PopupGrab)) {
       this.keyboard.startGrab(this.popupGrab)
     }
     if (!(this.pointer.grab instanceof PopupGrab)) {
       this.pointer.startGrab(this.popupGrab)
     }
-
-    this.popupGrab.initialUp = this.pointer.buttonCount === 0
-    this.popupGrab.client = client
 
     return true
   }
