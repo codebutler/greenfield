@@ -304,12 +304,12 @@ function ensureGeometryConstraints(
         return
       }
 
-      const canFlipX = (positionerState.constraintAdjustment | flipX) !== 0
-      const canFlipY = (positionerState.constraintAdjustment | flipY) !== 0
-      const canSlideX = (positionerState.constraintAdjustment | slideX) !== 0
-      const canSlideY = (positionerState.constraintAdjustment | slideY) !== 0
-      const canResizeX = (positionerState.constraintAdjustment | resizeX) !== 0
-      const canResizeY = (positionerState.constraintAdjustment | resizeY) !== 0
+      const canFlipX = (positionerState.constraintAdjustment & flipX) !== 0
+      const canFlipY = (positionerState.constraintAdjustment & flipY) !== 0
+      const canSlideX = (positionerState.constraintAdjustment & slideX) !== 0
+      const canSlideY = (positionerState.constraintAdjustment & slideY) !== 0
+      const canResizeX = (positionerState.constraintAdjustment & resizeX) !== 0
+      const canResizeY = (positionerState.constraintAdjustment & resizeY) !== 0
 
       // X-Axis:
       // we can't use slide or flip if if the height is greater than the screen height
