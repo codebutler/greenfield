@@ -1,11 +1,15 @@
 // Implements zxdg_decoration_manager_v1 / zxdg_toplevel_decoration_v1.
 //
-// The compositor draws server-side decorations (titlebars/frames) for ALL
-// top-level surfaces. This protocol's job is to tell decoration-aware clients
-// (GTK/Qt etc.) to use SERVER-side mode, so they suppress their own client-side
-// decorations and we don't end up with double titlebars. Clients that never
-// bind this global (our simple wl_shm apps) are decorated anyway and draw
-// nothing themselves, so there is no conflict.
+// We HONOR the client's decoration preference. A client that asks for client-side
+// mode (CSD — e.g. a GTK app with its own GtkHeaderBar) draws its own titlebar, so
+// the DOM-windows shell suppresses the titlebar it would otherwise add (issue #105:
+// otherwise the GTK headerbar AND the shell titlebar both show — a double
+// decoration). A client that asks for server-side mode (or never sets one) is
+// decorated by the shell, which keeps its titlebar. Clients that never bind this
+// global (our simple wl_shm apps) draw nothing themselves and stay shell-decorated.
+//
+// The negotiated mode is announced to the shell via surfaceDecorationModeUpdated so
+// it can add/drop its window chrome accordingly.
 import {
   Client,
   Global,
@@ -19,20 +23,44 @@ import {
 } from '@gfld/compositor-protocol'
 
 import Session from './Session'
+import type XdgToplevel from './XdgToplevel'
 
 class ToplevelDecoration implements ZxdgToplevelDecorationV1Requests {
   constructor(
     readonly resource: ZxdgToplevelDecorationV1Resource,
     readonly toplevel: XdgToplevelResource,
+    private readonly session: Session,
   ) {}
 
-  setMode(resource: ZxdgToplevelDecorationV1Resource, _mode: number): void {
-    // we always provide server-side decorations, regardless of the client's preference
-    resource.configure(ZxdgToplevelDecorationV1Mode.serverSide)
+  // Announce the negotiated mode to the DOM-windows shell. The compositorSurface is
+  // derived directly from the toplevel's wl_surface so it works even before the
+  // surface is mapped (decoration is negotiated before the first commit).
+  private announce(mode: 'client' | 'server'): void {
+    const xdgToplevel = this.toplevel.implementation as XdgToplevel | undefined
+    const surface = xdgToplevel?.xdgSurface?.surface
+    if (!surface) {
+      return
+    }
+    this.session.userShell.events.surfaceDecorationModeUpdated?.(
+      { id: surface.resource.id, client: { id: surface.resource.client.id } },
+      mode,
+    )
+  }
+
+  setMode(resource: ZxdgToplevelDecorationV1Resource, mode: number): void {
+    if (mode === ZxdgToplevelDecorationV1Mode.clientSide) {
+      resource.configure(ZxdgToplevelDecorationV1Mode.clientSide)
+      this.announce('client')
+    } else {
+      resource.configure(ZxdgToplevelDecorationV1Mode.serverSide)
+      this.announce('server')
+    }
   }
 
   unsetMode(resource: ZxdgToplevelDecorationV1Resource): void {
+    // No preference → the compositor picks. We default to server-side (shell-drawn).
     resource.configure(ZxdgToplevelDecorationV1Mode.serverSide)
+    this.announce('server')
   }
 
   destroy(resource: ZxdgToplevelDecorationV1Resource): void {
@@ -80,8 +108,10 @@ export default class XdgDecorationManager implements ZxdgDecorationManagerV1Requ
 
   getToplevelDecoration(resource: ZxdgDecorationManagerV1Resource, id: number, toplevel: XdgToplevelResource): void {
     const decorationResource = new ZxdgToplevelDecorationV1Resource(resource.client, id, resource.version)
-    decorationResource.implementation = new ToplevelDecoration(decorationResource, toplevel)
-    // Announce server-side mode up front so the client never draws its own decorations.
+    const decoration = new ToplevelDecoration(decorationResource, toplevel, this.session)
+    decorationResource.implementation = decoration
+    // Announce a server-side default up front; the client's set_mode (if any) overrides
+    // it, and each negotiated mode is forwarded to the shell via surfaceDecorationModeUpdated.
     decorationResource.configure(ZxdgToplevelDecorationV1Mode.serverSide)
   }
 }

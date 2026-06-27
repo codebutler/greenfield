@@ -50,6 +50,18 @@ export interface UserShellApiEvents {
     },
   ) => void
 
+  // Fired when a toplevel's decoration mode is negotiated via xdg-decoration.
+  // 'client' = the client draws its own decorations (CSD, e.g. a GTK headerbar);
+  // the DOM-windows shell should then SUPPRESS its own titlebar to avoid a double
+  // decoration. 'server' = the client expects the compositor/shell to decorate, so
+  // the shell keeps its titlebar. Non-decoration-aware clients never trigger this
+  // and default to server-side (shell-drawn) decoration.
+  surfaceDecorationModeUpdated?: (compositorSurface: CompositorSurface, mode: 'client' | 'server') => void
+  // Fired when a client asks to interactively move its own toplevel (xdg_toplevel.move,
+  // e.g. the user grabbed a CSD headerbar). In DOM-windows mode the window position is
+  // owned by the shell's <div>, so the shell starts following the pointer to drag it.
+  surfaceMoveRequested?: (compositorSurface: CompositorSurface) => void
+
   notify?: (variant: 'warn' | 'info' | 'error', message: string) => void
 
   sceneRefreshed?: (sceneId: string) => void

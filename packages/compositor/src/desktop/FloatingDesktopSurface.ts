@@ -256,6 +256,18 @@ export class FloatingDesktopSurface implements DesktopSurface {
       return
     }
 
+    // DOM-windows mode (the shell registered a surfaceContentUpdated handler): the
+    // window's on-screen position is owned by the shell's <div>, not the scene
+    // view.positionOffset a MoveGrab would move. A CSD client (suppressed shell
+    // titlebar) drives dragging through this request, so hand it to the shell to
+    // follow the pointer. We don't re-check the scene pointer grab state here — in
+    // DOM-windows mode input arrives pre-hit-tested via forwardLocalButton and the
+    // shell validates the drag against its own pointer state.
+    if (this.surface.session.userShell.events.surfaceContentUpdated) {
+      this.surface.session.userShell.events.surfaceMoveRequested?.(this.compositorSurface)
+      return
+    }
+
     const pointer = this.surface.session.globals.seat.pointer
     if (
       pointer.focus &&
