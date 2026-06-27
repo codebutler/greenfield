@@ -102,12 +102,25 @@ export default class Renderer {
     if (view.surface.state.bufferContents) {
       const cursorBufferContents = view.surface.state.bufferContents
 
-      const cursorImage = cursorBufferContents.pixelContent as { bitmap: ImageBitmap | undefined } | undefined
-      if (cursorImage === undefined || cursorImage.bitmap === undefined) {
+      // wl_shm / canvas buffers expose the decoded ImageBitmap DIRECTLY as
+      // pixelContent (updateRenderStatesPixelContent passes
+      // `bitmap: bufferContents.pixelContent`); only decoded video frames wrap it
+      // in a `.bitmap` field. Accept both — otherwise a wl_shm cursor (every GTK
+      // app's cursor) has no `.bitmap`, updateCursor bails, and the pointer is
+      // left hidden (cursor: none).
+      const cursorImage = cursorBufferContents.pixelContent as
+        | { bitmap: ImageBitmap | undefined }
+        | ImageBitmap
+        | undefined
+      const bitmap =
+        cursorImage && (cursorImage as { bitmap?: ImageBitmap }).bitmap !== undefined
+          ? (cursorImage as { bitmap: ImageBitmap }).bitmap
+          : (cursorImage as ImageBitmap | undefined)
+      if (bitmap === undefined || bitmap === null) {
         return
       }
 
-      setBrowserCursor(cursorImage.bitmap, hotspot)
+      setBrowserCursor(bitmap, hotspot)
     } else {
       this.hideCursor()
     }
