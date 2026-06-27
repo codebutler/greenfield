@@ -1,0 +1,19 @@
+packages/compositor/src/XdgSurface.ts
+  s_d580a0e82f6259::t_817c267bdc829a 307-312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "b5d7a2f370001144eb2341b497f1bf6971af4022",
+  "prompts": {},
+  "sessions": {
+    "s_d580a0e82f6259": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7838adf-a5d7-4f15-84a0-3e0baf17456b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
