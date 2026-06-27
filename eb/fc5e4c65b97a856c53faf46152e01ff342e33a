@@ -1,0 +1,30 @@
+packages/compositor/src/XdgPopup.ts
+  s_d580a0e82f6259::t_083f2781919578 91-98
+packages/compositor/src/render/Renderer.ts
+  s_d580a0e82f6259::t_66dbcea824e439 307-321,324
+packages/compositor/src/Pointer.ts
+  s_d580a0e82f6259::t_eafb3ed7c2935c 696-704
+  s_d580a0e82f6259::t_e2362b3e5cef6e 719-725
+packages/compositor/src/UserShellApi.ts
+  s_d580a0e82f6259::t_d9c637931e5236 41-50
+packages/compositor/src/Seat.ts
+  s_d580a0e82f6259::t_0d3ca5138e6e44 657-664
+packages/compositor/src/XdgPositioner.ts
+  s_d580a0e82f6259::t_b7f7fb1bb5401e 32-33,40,48,57,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "ebfc5e4c65b97a856c53faf46152e01ff342e33a",
+  "prompts": {},
+  "sessions": {
+    "s_d580a0e82f6259": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7838adf-a5d7-4f15-84a0-3e0baf17456b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
