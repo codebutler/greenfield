@@ -1,0 +1,21 @@
+packages/compositor/src/desktop/FloatingDesktopSurface.ts
+  s_d580a0e82f6259::t_fdf5da8e0feca4 283-287,289
+packages/compositor/src/UserShellApi.ts
+  s_d580a0e82f6259::t_be22a50101aeb2 76-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "b33e4de422be926e14542c8844543856102fcb23",
+  "prompts": {},
+  "sessions": {
+    "s_d580a0e82f6259": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7838adf-a5d7-4f15-84a0-3e0baf17456b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
