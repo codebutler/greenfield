@@ -280,12 +280,13 @@ export class FloatingDesktopSurface implements DesktopSurface {
   }
 
   resize(grabSerial: number, edges: WlShellSurfaceResize): void {
-    // DOM-windows mode: the shell owns window geometry. A client-side interactive edge resize
-    // would drive a compositor ResizeGrab against the scene view.positionOffset, which doesn't
-    // map to the shell's <div> (the resize would be invisible / wrong). The shell provides its
-    // own resize affordance and repaints the guest via configureSurfaceSize, so ignore the
-    // client-initiated resize grab here rather than starting a broken one.
+    // DOM-windows mode: the shell owns window geometry. A compositor ResizeGrab drives the scene
+    // view.positionOffset, which doesn't map to the shell's <div>. Hand the client-initiated
+    // resize (the app's own edge/corner handles → xdg_toplevel.resize) to the shell, which
+    // follows the pointer to resize its window and repaints the guest via configureSurfaceSize.
+    // `edges` is the xdg resize-edge bitmask (top=1, bottom=2, left=4, right=8).
     if (this.surface.session.userShell.events.surfaceContentUpdated) {
+      this.surface.session.userShell.events.surfaceResizeRequested?.(this.compositorSurface, edges)
       return
     }
 

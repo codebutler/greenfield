@@ -73,6 +73,12 @@ export interface UserShellApiEvents {
   // DOM-windows mode the shell hides its window (e.g. to a taskbar); the scene-side `mapped`
   // flag the compositor would clear is meaningless when each surface is its own DOM window.
   surfaceMinimizeRequested?: (compositorSurface: CompositorSurface) => void
+  // Fired when a client starts an interactive resize from its OWN resize handles
+  // (xdg_toplevel.resize — the app draws the edge/corner affordances, common for CSD apps).
+  // In DOM-windows mode the shell owns window geometry, so it follows the pointer to resize its
+  // window and calls configureSurfaceSize so the guest repaints at the new size. `edges` is the
+  // xdg resize-edge bitmask: top=1, bottom=2, left=4, right=8 (corners are the OR of two).
+  surfaceResizeRequested?: (compositorSurface: CompositorSurface, edges: number) => void
 
   notify?: (variant: 'warn' | 'info' | 'error', message: string) => void
 
