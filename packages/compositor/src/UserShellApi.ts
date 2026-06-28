@@ -61,6 +61,18 @@ export interface UserShellApiEvents {
   // e.g. the user grabbed a CSD headerbar). In DOM-windows mode the window position is
   // owned by the shell's <div>, so the shell starts following the pointer to drag it.
   surfaceMoveRequested?: (compositorSurface: CompositorSurface) => void
+  // Fired when a client asks to (un)maximize its own toplevel (xdg_toplevel.set_maximized /
+  // unset_maximized). In DOM-windows mode the scene "canvas" is a hidden 1×1 driver, so the
+  // compositor can't size a maximized window itself (the usual maximizedScene.canvas sizing
+  // would tell the client to become 1×1). The shell owns window geometry: it resizes its
+  // window to the work area (or restores it) and calls configureSurfaceSize so the client
+  // repaints at the new size; the compositor still sends the maximized STATE so the client
+  // adapts its decorations.
+  surfaceMaximizeRequested?: (compositorSurface: CompositorSurface, maximized: boolean) => void
+  // Fired when a client asks to minimize its own toplevel (xdg_toplevel.set_minimized). In
+  // DOM-windows mode the shell hides its window (e.g. to a taskbar); the scene-side `mapped`
+  // flag the compositor would clear is meaningless when each surface is its own DOM window.
+  surfaceMinimizeRequested?: (compositorSurface: CompositorSurface) => void
 
   notify?: (variant: 'warn' | 'info' | 'error', message: string) => void
 
@@ -91,6 +103,11 @@ export interface UserShellApiActions {
   pointerLeave(compositorSurface: CompositorSurface): void
   pointerButton(compositorSurface: CompositorSurface, buttonCode: ButtonCode, released: boolean): void
   notifyKey(keyboardEvent: KeyboardEvent, pressed: boolean): void
+
+  // Configure a surface's toplevel to a specific size — the DOM-windows shell calls this so a
+  // guest repaints crisply at a new window size (maximize, or a shell-driven window resize)
+  // instead of the shell CSS-scaling a stale buffer. width/height of 0 lets the client pick.
+  configureSurfaceSize(compositorSurface: CompositorSurface, width: number, height: number): void
 }
 
 export interface UserShellApi {
@@ -178,6 +195,13 @@ export function createUserShellApi(session: Session): UserShellApi {
           session.globals.seat.notifyKey(keyEvent)
           session.flush()
         }
+      },
+      configureSurfaceSize: (compositorSurface, width, height) => {
+        // Reach the DesktopSurfaceRole (XdgToplevel) via the desktop surface and configure it.
+        // A width/height of 0 is the protocol's "client picks its own size" (used on un-maximize).
+        const role = lookupSurface(session, compositorSurface)?.role?.desktopSurface?.role
+        role?.configureSize?.({ width, height })
+        session.flush()
       },
     },
   }

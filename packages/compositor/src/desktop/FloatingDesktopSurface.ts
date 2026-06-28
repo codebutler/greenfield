@@ -280,6 +280,15 @@ export class FloatingDesktopSurface implements DesktopSurface {
   }
 
   resize(grabSerial: number, edges: WlShellSurfaceResize): void {
+    // DOM-windows mode: the shell owns window geometry. A client-side interactive edge resize
+    // would drive a compositor ResizeGrab against the scene view.positionOffset, which doesn't
+    // map to the shell's <div> (the resize would be invisible / wrong). The shell provides its
+    // own resize affordance and repaints the guest via configureSurfaceSize, so ignore the
+    // client-initiated resize grab here rather than starting a broken one.
+    if (this.surface.session.userShell.events.surfaceContentUpdated) {
+      return
+    }
+
     const pointer = this.surface.session.globals.seat.pointer
     if (
       pointer.buttonCount === 0 ||
@@ -334,6 +343,17 @@ export class FloatingDesktopSurface implements DesktopSurface {
   }
 
   setMaximized(maximized: boolean): void {
+    // DOM-windows mode: the scene "canvas" is a hidden 1×1 driver, so maximizedScene.canvas
+    // sizing would tell the client to become 1×1. The shell owns window geometry — hand it the
+    // (un)maximize so it resizes its window to the work area (or restores it) and calls
+    // configureSurfaceSize for the new size. Still send the maximized STATE so the client
+    // adapts its own decorations (e.g. GTK swaps the maximize glyph and drops its CSD shadow).
+    if (this.surface.session.userShell.events.surfaceContentUpdated) {
+      this.surface.session.userShell.events.surfaceMaximizeRequested?.(this.compositorSurface, maximized)
+      this.role.configureMaximized(maximized)
+      return
+    }
+
     if (maximized) {
       // FIXME views should have their relevant scene set explicitly based on their location instead of re-calculated each time.
       const maximizedScene = this.role.view.relevantScene ?? Object.values(this.surface.session.renderer.scenes)[0]
@@ -453,6 +473,14 @@ export class FloatingDesktopSurface implements DesktopSurface {
   }
 
   minimize(): void {
+    // DOM-windows mode: clearing the scene view's `mapped` flag is meaningless (the surface
+    // isn't composited into the scene — it's its own DOM window). Hand minimize to the shell,
+    // which hides its window (e.g. to a taskbar) and can restore it later.
+    if (this.surface.session.userShell.events.surfaceContentUpdated) {
+      this.surface.session.userShell.events.surfaceMinimizeRequested?.(this.compositorSurface)
+      return
+    }
+
     this.role.view.mapped = false
     const seat = this.surface.session.globals.seat
     if (this.surface === seat.keyboard.focus?.getMainSurface()) {
