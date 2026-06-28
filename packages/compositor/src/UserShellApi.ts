@@ -113,7 +113,14 @@ export interface UserShellApiActions {
   // Configure a surface's toplevel to a specific size — the DOM-windows shell calls this so a
   // guest repaints crisply at a new window size (maximize, or a shell-driven window resize)
   // instead of the shell CSS-scaling a stale buffer. width/height of 0 lets the client pick.
-  configureSurfaceSize(compositorSurface: CompositorSurface, width: number, height: number): void
+  // Pass `resizing` during a shell-driven interactive resize (true while dragging, false on the
+  // final configure) so the client tracks the resize state (and resets its resize cursor).
+  configureSurfaceSize(
+    compositorSurface: CompositorSurface,
+    width: number,
+    height: number,
+    resizing?: boolean,
+  ): void
 }
 
 export interface UserShellApi {
@@ -202,12 +209,26 @@ export function createUserShellApi(session: Session): UserShellApi {
           session.flush()
         }
       },
-      configureSurfaceSize: (compositorSurface, width, height) => {
+      configureSurfaceSize: (compositorSurface, width, height, resizing) => {
         // Reach the DesktopSurfaceRole (XdgToplevel) via the desktop surface and configure it.
         // A width/height of 0 is the protocol's "client picks its own size" (used on un-maximize).
         const role = lookupSurface(session, compositorSurface)?.role?.desktopSurface?.role
-        role?.configureSize?.({ width, height })
-        session.flush()
+        if (role === undefined) {
+          return
+        }
+        // During a shell-driven interactive resize, carry the resizing STATE so the client
+        // (e.g. GTK) knows it's mid-resize and ends the interaction cleanly when it clears —
+        // without it GTK stays in its resize affordance (the "stuck resize cursor").
+        if (typeof resizing === 'boolean') {
+          role.configureResizing?.(resizing)
+        }
+        role.configureSize?.({ width, height })
+        // configureSize/configureResizing emit the xdg_surface.configure on a MICROTASK
+        // (XdgSurface.scheduleConfigure → queueCancellableMicrotask). A synchronous flush
+        // here runs BEFORE those bytes exist, so the configure sits unflushed until the next
+        // input event — the client never repaints at the new size (the "stretched, not
+        // redrawn" window). Flush AFTER the microtask so the configure is actually sent.
+        queueMicrotask(() => session.flush())
       },
     },
   }
