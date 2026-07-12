@@ -47,6 +47,11 @@ export interface UserShellApiEvents {
       // DOM-windows shell render the popup as a positioned overlay. Undefined for
       // toplevels.
       parent?: { id: number; client: string; dx: number; dy: number }
+      // The visible window rect within the buffer (xdg_surface window geometry),
+      // shadow/CSD margins excluded. A DOM-windows shell crops the buffer to this
+      // and places its chrome at these edges instead of the buffer edges. Equals
+      // the full buffer when the client set no window geometry.
+      geometry?: { x: number; y: number; width: number; height: number }
     },
   ) => void
 

@@ -332,9 +332,21 @@ export default class Renderer {
             dy: a.y - b.y,
           }
         }
+        // The window geometry (xdg_surface.set_window_geometry) is the visible
+        // window rect within the buffer — shadow/CSD margins excluded. A DOM-windows
+        // shell uses it to crop the client's shadow margins out and to place its own
+        // chrome (borders, resize grips) at the window's real edges instead of the
+        // buffer edges (codebutler/nix-wasm#143 follow-up).
+        const g = view.surface.geometry
+        const geometry = {
+          x: g.position.x,
+          y: g.position.y,
+          width: g.size.width,
+          height: g.size.height,
+        }
         this.session.userShell.events.surfaceContentUpdated(
           { id: view.surface.resource.id, client: { id: view.surface.resource.client.id } },
-          { bitmap: bufferContents.pixelContent, width, height, parent },
+          { bitmap: bufferContents.pixelContent, width, height, parent, geometry },
         )
       }
     } else if (buffer !== undefined && bufferContents === undefined) {
