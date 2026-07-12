@@ -3,6 +3,15 @@ on:
   push:
     branches:
       - master
+  # Build (but do NOT deploy) on PRs — previously PRs got zero CI, so a build
+  # break only surfaced after merge on the master push. The deploy step below is
+  # guarded to master pushes only.
+  pull_request:
+
+# Supersede in-flight runs on a newer push to the same branch/PR.
+concurrency:
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -39,6 +48,8 @@ jobs:
         run: yarn workspaces foreach --parallel --topological-dev run build
 
       - name: Deploy Compositor Shell
+        # Deploy only on a real master push — PR builds are a check, not a release.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
