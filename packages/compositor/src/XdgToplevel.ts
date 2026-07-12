@@ -226,10 +226,38 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
 
   setMaxSize(resource: XdgToplevelResource, width: number, height: number): void {
     this.next.maxSize = { width, height }
+    this.maybeConfigureFixedSize()
   }
 
   setMinSize(resource: XdgToplevelResource, width: number, height: number): void {
     this.next.minSize = { width, height }
+    this.maybeConfigureFixedSize()
+  }
+
+  // A non-resizable toplevel (min_size == max_size, both non-zero) is told its
+  // exact size via a real configure instead of the default 0x0 ("client picks").
+  // GTK3's wayland backend sizes a 0x0-configured window from a fallback captured
+  // before its CSD titlebar is folded into the size request, so a fixed-size
+  // window renders one titlebar-height too short and — unlike a resizable window,
+  // which grows on a later relayout — never corrects (codebutler/nix-wasm#143).
+  // Handing it the size it itself declared puts GTK on the explicit-size path,
+  // which accounts for the titlebar. This is standard compositor behaviour: a
+  // client that pinned min==max is asking to BE that size. Skipped while
+  // maximized/fullscreen (those states own the size).
+  private maybeConfigureFixedSize(): void {
+    const min = this.next.minSize
+    const max = this.next.maxSize
+    if (
+      min.width > 0 &&
+      min.height > 0 &&
+      min.width === max.width &&
+      min.height === max.height &&
+      this.pending.state.maximized === undefined &&
+      this.pending.state.fullscreen === undefined &&
+      (this.pending.size.width !== min.width || this.pending.size.height !== min.height)
+    ) {
+      this.configureSize({ width: min.width, height: min.height })
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
