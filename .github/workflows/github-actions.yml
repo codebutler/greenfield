@@ -45,7 +45,7 @@ jobs:
         run: yarn install # will run `yarn install` command
 
       - name: Build
-        run: yarn workspaces foreach --parallel --topological-dev run build
+        run: yarn workspaces foreach --all --parallel --topological-dev run build
 
       - name: Deploy Compositor Shell
         # Deploy only on a real master push — PR builds are a check, not a release.

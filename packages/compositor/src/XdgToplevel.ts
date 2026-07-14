@@ -161,6 +161,8 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
     this.current.minSize = this.next.minSize
     this.current.maxSize = this.next.maxSize
 
+    this.enforceMinSize()
+
     this.desktopSurface.commit()
     surface.session.renderer.render()
   }
@@ -226,10 +228,63 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
 
   setMaxSize(resource: XdgToplevelResource, width: number, height: number): void {
     this.next.maxSize = { width, height }
+    this.maybeConfigureFixedSize()
   }
 
   setMinSize(resource: XdgToplevelResource, width: number, height: number): void {
     this.next.minSize = { width, height }
+    this.maybeConfigureFixedSize()
+  }
+
+  // A non-resizable toplevel (min_size == max_size, both non-zero) is told its
+  // exact size via a real configure instead of the default 0x0 ("client picks").
+  // GTK3's wayland backend sizes a 0x0-configured window from a fallback captured
+  // before its CSD titlebar is folded into the size request, so a fixed-size
+  // window renders one titlebar-height too short and — unlike a resizable window,
+  // which grows on a later relayout — never corrects (codebutler/nix-wasm#143).
+  // Handing it the size it itself declared puts GTK on the explicit-size path,
+  // which accounts for the titlebar. This is standard compositor behaviour: a
+  // client that pinned min==max is asking to BE that size. Skipped while
+  // maximized/fullscreen (those states own the size).
+  // A compositor must never leave a toplevel smaller than its declared minimum.
+  // GTK3, self-sizing from the default 0x0 configure, draws a window one CSD
+  // titlebar-height short — for a fixed (min==max) window `maybeConfigureFixedSize`
+  // pre-empts it, but a window that declares only a min_size (e.g. galculator:
+  // min 331x380, max unset, drawn at geometry 331x328) slips through. On commit,
+  // if the committed window geometry is below min in either axis, configure it up.
+  // The pending-size guard settles it in one round and prevents a loop if the
+  // client can't reach min (a min larger than the output stays put). See
+  // codebutler/nix-wasm#143.
+  private enforceMinSize(): void {
+    const min = this.current.minSize
+    if (!(min.width > 0 && min.height > 0)) {
+      return
+    }
+    const geo = this.xdgSurface.surface.geometry.size
+    if (geo.width >= min.width && geo.height >= min.height) {
+      return
+    }
+    const width = geo.width < min.width ? min.width : geo.width
+    const height = geo.height < min.height ? min.height : geo.height
+    if (this.pending.size.width !== width || this.pending.size.height !== height) {
+      this.configureSize({ width, height })
+    }
+  }
+
+  private maybeConfigureFixedSize(): void {
+    const min = this.next.minSize
+    const max = this.next.maxSize
+    if (
+      min.width > 0 &&
+      min.height > 0 &&
+      min.width === max.width &&
+      min.height === max.height &&
+      this.pending.state.maximized === undefined &&
+      this.pending.state.fullscreen === undefined &&
+      (this.pending.size.width !== min.width || this.pending.size.height !== min.height)
+    ) {
+      this.configureSize({ width: min.width, height: min.height })
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
