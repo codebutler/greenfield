@@ -62,6 +62,17 @@ build() {
     pushd repo-xkeyboard-config
       meson setup --wipe build/ --cross-file "${PACKAGE_DIR}/emscripten-toolchain.ini" --cross-file "${PACKAGE_DIR}/emscripten-build.ini" -Dprefix="${PACKAGE_DIR}/xkbcommon/repo/" -Dxkb-base="/usr/share"
       ninja -C build/ install
+      # xkeyboard-config >= 2.45 installs its data into a VERSIONED directory
+      # (share/xkeyboard-config-2) and makes share/X11/xkb an ABSOLUTE symlink
+      # to it. emcc's file_packager (below, embedding share/X11 into
+      # libxkbcommon.data) cannot embed that symlink and dies with
+      #   emcc: error: '.../file_packager ... --embed .../repo/share/X11@/usr/share/X11' failed
+      # so replace the symlink with the real tree it points at. -L dereferences.
+      if [ -L "${PACKAGE_DIR}/xkbcommon/repo/share/X11/xkb" ]; then
+        xkb_link_target="$(readlink -f "${PACKAGE_DIR}/xkbcommon/repo/share/X11/xkb")"
+        rm "${PACKAGE_DIR}/xkbcommon/repo/share/X11/xkb"
+        cp -rL "$xkb_link_target" "${PACKAGE_DIR}/xkbcommon/repo/share/X11/xkb"
+      fi
     popd
 
     pushd repo
