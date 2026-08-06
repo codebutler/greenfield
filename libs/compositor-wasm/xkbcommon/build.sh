@@ -15,7 +15,13 @@ ensure_repo() {
 }
 
 ensure_repo_xkeyboard-config() {
-      git clone --depth 1 --branch "master" "https://gitlab.freedesktop.org/xkeyboard-config/xkeyboard-config.git" repo-xkeyboard-config
+      # PINNED, like repo_xml2 below. This used to track "master" unpinned, which
+      # bit-rotted the moment upstream moved: xkeyboard-config removed the
+      # `xkb-base` meson option in 7f4bfd3a (2025-06-18), so the `-Dxkb-base=`
+      # flag in build() below started failing every clean build with
+      #   meson.build:1:0: ERROR: Unknown option: "xkb-base"
+      # 2.45 (2025-06-07) is the last release that still has the option.
+      git clone --depth 1 --branch "xkeyboard-config-2.45" "https://gitlab.freedesktop.org/xkeyboard-config/xkeyboard-config.git" repo-xkeyboard-config
 }
 
 ensure_repo_xml2() {
