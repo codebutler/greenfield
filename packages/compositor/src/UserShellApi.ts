@@ -95,6 +95,15 @@ export interface UserShellApiActions {
   refreshScene(): void
   destroyScene(sceneId: string): void
 
+  // Set the size a scene's wl_output ADVERTISES to clients, when that must
+  // differ from the scene canvas's own dimensions -- i.e. for a DOM-windows
+  // shell, whose driver canvas is deliberately tiny (see Output's
+  // setLogicalSize). Pass the desktop area guest windows may occupy. Safe to
+  // call repeatedly: bound clients are re-notified, so call it on viewport
+  // changes too, not only at startup. A canvas-rendering shell never needs
+  // this -- its canvas is already the truth.
+  setSceneOutputSize(sceneId: string, width: number, height: number): void
+
   setUserConfiguration(userConfiguration: Partial<CompositorConfiguration>): void
 
   closeClient(applicationClient: Pick<CompositorClient, 'id'>): void
@@ -165,6 +174,10 @@ export function createUserShellApi(session: Session): UserShellApi {
         addInputOutput(session, canvasCreator),
       refreshScene: () => {
         session.renderer.render()
+      },
+      setSceneOutputSize: (sceneId: string, width: number, height: number) => {
+        session.renderer.scenes[sceneId]?.output.setLogicalSize(width, height)
+        session.flush()
       },
       destroyScene: (sceneId) => session.renderer.scenes[sceneId].destroy(),
       setUserConfiguration: (userConfiguration) => {

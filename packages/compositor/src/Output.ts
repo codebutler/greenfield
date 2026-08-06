@@ -42,6 +42,55 @@ export default class Output implements WlOutputRequests {
     private _y = 0,
   ) {}
 
+  // The size this output ADVERTISES, when it must differ from the scene
+  // canvas's own dimensions. A canvas-rendering shell leaves this unset and
+  // the canvas stays the source of truth (unchanged behaviour). A
+  // DOM-windows shell renders each surface into its own element and drives
+  // the compositor with a deliberately tiny off-screen "driver" canvas --
+  // tiny because the scene canvas carries a GL context, so sizing it to the
+  // real desktop would resurrect the full-scene compositing that shell
+  // exists to avoid. Without this override the driver canvas's dimensions
+  // leak out over wl_output as the display size.
+  //
+  // That is not cosmetic. Rootless Xwayland derives the X SCREEN from the
+  // advertised output and X clamps windows to the screen, so a 1x1 driver
+  // canvas made every X client a one-pixel window -- `xdpyinfo` reported
+  // `dimensions: 1x1 pixels`, and neither a client-side -geometry nor
+  // sommelier's --scale could widen it. Wayland clients never noticed
+  // because they size from xdg_toplevel configure, but the output was
+  // lying to them too (fullscreen/maximize extents, DPI heuristics).
+  // Same class of bug as the mHz refresh-rate fix: a wl_output field that
+  // clients legitimately consume, reporting an implementation detail
+  // instead of reality.
+  private _logicalWidth?: number
+  private _logicalHeight?: number
+
+  get width(): number {
+    return this._logicalWidth ?? this.canvas.width
+  }
+
+  get height(): number {
+    return this._logicalHeight ?? this.canvas.height
+  }
+
+  // Set the advertised size and tell everyone already bound. Clients cache
+  // output geometry from bind time, so a resize MUST re-emit (mode+done) or
+  // Xwayland keeps the stale X screen -- which is also why the shell should
+  // call this on viewport changes, not just at startup.
+  setLogicalSize(width: number, height: number): void {
+    if (width <= 0 || height <= 0) {
+      return
+    }
+    if (this._logicalWidth === width && this._logicalHeight === height) {
+      return
+    }
+    this._logicalWidth = width
+    this._logicalHeight = height
+    for (const resource of this.resources) {
+      this.emitSpecs(resource)
+    }
+  }
+
   get x(): number {
     return this._x
   }
@@ -109,15 +158,15 @@ export default class Output implements WlOutputRequests {
     const flags = WlOutputMode.current
     // the refresh rate is impossible to query without manual measuring, which is error prone.
     const refresh = 60000
-    wlOutputResource.mode(flags, this.canvas.width, this.canvas.height, refresh)
+    wlOutputResource.mode(flags, this.width, this.height, refresh)
   }
 
   private emitGeometry(wlOutputResource: WlOutputResource) {
     // this is really just an approximation as browsers don't offer a way to get the physical width :(
     // A css pixel is roughly 1/96 of an inch, so ~0.2646 mm
     // TODO test this on high dpi devices
-    const physicalWidth = Math.ceil(this.canvas.width * 0.2646)
-    const physicalHeight = Math.ceil(this.canvas.height * 0.2646)
+    const physicalWidth = Math.ceil(this.width * 0.2646)
+    const physicalHeight = Math.ceil(this.height * 0.2646)
     const subpixel = WlOutputSubpixel.unknown
     const make = 'Greenfield'
     const model = capabilities.userAgent
