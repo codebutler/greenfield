@@ -157,9 +157,14 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
     //   return
     // }
 
+    const limitsChanged =
+      this.current.minSize !== this.next.minSize || this.current.maxSize !== this.next.maxSize
     this.current.state = { ...this.next.state }
     this.current.minSize = this.next.minSize
     this.current.maxSize = this.next.maxSize
+    if (limitsChanged) {
+      this.emitSizeLimits()
+    }
 
     this.enforceMinSize()
 
@@ -269,6 +274,20 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
     if (this.pending.size.width !== width || this.pending.size.height !== height) {
       this.configureSize({ width, height })
     }
+  }
+
+  private emitSizeLimits(): void {
+    const { minSize, maxSize } = this.current
+    const bound = (n: number) => (n > 0 && n < Number.MAX_SAFE_INTEGER ? n : 0)
+    this.session.userShell.events.surfaceSizeLimitsUpdated?.(
+      { id: this.xdgSurface.surface.resource.id, client: { id: this.xdgSurface.surface.resource.client.id } },
+      {
+        minWidth: bound(minSize.width),
+        minHeight: bound(minSize.height),
+        maxWidth: bound(maxSize.width),
+        maxHeight: bound(maxSize.height),
+      },
+    )
   }
 
   private maybeConfigureFixedSize(): void {

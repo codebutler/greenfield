@@ -44,6 +44,7 @@ import { DragIconRole, Pointer, PointerDrag, PointerGrab } from './Pointer'
 import Session from './Session'
 import Surface from './Surface'
 import Touch from './Touch'
+import View from './View'
 import { createFromNames, Led } from './Xkb'
 import { DataSource } from './DataSource'
 import { sendOffer, WaylandDataSource } from './WaylandDataSource'
@@ -109,6 +110,14 @@ export class PopupGrab implements KeyboardGrab, PointerGrab {
     const view = this.seat.session.renderer.pickView(this.pointer)
     if (view !== undefined && view.surface.resource.client === this.client) {
       const { x: sx, y: sy } = view.sceneToViewSpace(this.pointer)
+      this.pointer.setFocus(view, sx, sy)
+    } else {
+      this.pointer.clearFocus()
+    }
+  }
+
+  focusLocal(view: View, sx: number, sy: number): void {
+    if (view.surface.resource.client === this.client) {
       this.pointer.setFocus(view, sx, sy)
     } else {
       this.pointer.clearFocus()
@@ -695,6 +704,26 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
     drag.end()
     this.pointer.endGrab()
     this.keyboard.endGrab()
+  }
+
+  deactivate(): void {
+    this.popupGrabEnd()
+
+    // Keys still held were pressed while a Wayland surface had focus; their release will
+    // go to whatever the shell focused instead, so release them here.
+    const serial = this.session.display.nextEventSerial()
+    this.keyboard.keys.forEach((key) => {
+      this.updateModifierState(serial, false, key)
+    })
+    this.keyboard.keys = []
+    this.modifierState = KeyboardModifier.NONE
+    this.keyboard.setFocus(undefined)
+
+    if (this.focusedSurface) {
+      this.focusedSurface.surface.resource.removeDestroyListener(this.focusSurfaceDestroyListener)
+      this.focusedSurface.loseFocus()
+      this.focusedSurface = undefined
+    }
   }
 
   dropFocus(): void {

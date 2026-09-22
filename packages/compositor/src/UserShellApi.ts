@@ -84,6 +84,14 @@ export interface UserShellApiEvents {
   // window and calls configureSurfaceSize so the guest repaints at the new size. `edges` is the
   // xdg resize-edge bitmask: top=1, bottom=2, left=4, right=8 (corners are the OR of two).
   surfaceResizeRequested?: (compositorSurface: CompositorSurface, edges: number) => void
+  // Fired when a toplevel's committed xdg_toplevel.set_min_size / set_max_size changes. In
+  // DOM-windows mode the shell owns the resize affordance (its own grip, or following an
+  // xdg_toplevel.resize), so it must clamp to these itself. Sizes are window-geometry pixels;
+  // 0 means unbounded on that axis (the protocol's "no limit").
+  surfaceSizeLimitsUpdated?: (
+    compositorSurface: CompositorSurface,
+    limits: { minWidth: number; minHeight: number; maxWidth: number; maxHeight: number },
+  ) => void
 
   notify?: (variant: 'warn' | 'info' | 'error', message: string) => void
 
@@ -109,6 +117,11 @@ export interface UserShellApiActions {
   closeClient(applicationClient: Pick<CompositorClient, 'id'>): void
 
   activateSurface(compositorSurface: CompositorSurface): void
+
+  // The shell moved focus to something the compositor does not own (a DOM-windows shell's
+  // non-Wayland window). Dismisses any open popup grab, sends wl_keyboard.leave, and clears
+  // the activated state of the focused toplevel. activateSurface restores it.
+  deactivateSurfaces(): void
 
   // Gracefully ask a surface's toplevel to close — sends the xdg_toplevel.close
   // protocol event to the client (vs closeClient, which tears down the server
@@ -160,6 +173,14 @@ export function createUserShellApi(session: Session): UserShellApi {
       activateSurface(compositorSurface: CompositorSurface) {
         const surface = lookupSurface(session, compositorSurface)
         surface.role?.desktopSurface?.activate()
+        // The activated-state configure is emitted on a microtask (see configureSurfaceSize).
+        session.flush()
+        queueMicrotask(() => session.flush())
+      },
+      deactivateSurfaces() {
+        session.globals.seat.deactivate()
+        session.flush()
+        queueMicrotask(() => session.flush())
       },
       requestSurfaceClose(compositorSurface: CompositorSurface) {
         const surface = lookupSurface(session, compositorSurface)
