@@ -120,6 +120,10 @@ export class DefaultPointerGrab implements PointerGrab {
 export interface PointerGrab {
   focus(): void
 
+  // Optional: take pointer focus from a DOM-windows shell's hit test (`view` is the surface
+  // the browser found under the pointer). Grabs without it fall back to scene pickView.
+  focusLocal?(view: View, sx: number, sy: number): void
+
   motion(event: ButtonEvent): void
 
   button(event: ButtonEvent): void
@@ -685,21 +689,30 @@ export class Pointer implements WlPointerRequests {
    * browser already hit-tested which window the event belongs to.
    */
   forwardLocalMotion(view: View, time: number, sx: number, sy: number): void {
-    if (this.focus?.surface !== view.surface) {
+    // The bridge feeds surface-local coords only; maintain scene-space x/y (used
+    // by pickView) so seat grabs work.
+    const scene = view.viewToSceneSpace({ x: sx, y: sy })
+    this.x = scene.x
+    this.y = scene.y
+    const entering = this.focus?.surface !== view.surface
+    // A popup grab must follow the browser's hit test, not scene pickView: the shell
+    // positions every window itself, so the scene does not match what is under the
+    // pointer. Re-picking from the scene on each motion flipped focus between the
+    // popup and its parent, and a click then landed on the parent and dismissed the menu.
+    if (this.grab.focusLocal) {
+      this.grab.focusLocal(view, sx, sy)
+    } else if (entering) {
       this.setFocus(view, sx, sy) // sends wl_pointer.enter + frame
+    }
+    if (entering || this.focus?.surface !== view.surface) {
       return
     }
     this.sx = sx
     this.sy = sy
     this.motion(time, sx, sy)
     this.sendFrame()
-    // The bridge feeds surface-local coords only; maintain scene-space x/y (used
-    // by pickView) so seat grabs work, and refresh the active grab's focus when a
-    // non-default grab (popup/move/resize/drag) is up.
-    const scene = view.viewToSceneSpace({ x: sx, y: sy })
-    this.x = scene.x
-    this.y = scene.y
-    if (this.grab !== this.defaultGrab) {
+    // Refresh the active grab's focus when a non-default grab (move/resize/drag) is up.
+    if (this.grab !== this.defaultGrab && !this.grab.focusLocal) {
       this.grab.focus()
     }
   }
