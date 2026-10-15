@@ -1,0 +1,21 @@
+packages/compositor/src/Seat.ts
+  s_033e42d67b5d30::t_97c1e3a372755b 823-830
+packages/compositor/src/XdgToplevel.ts
+  s_033e42d67b5d30::t_beb415817e410d 93-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f73366e085c43b10e02416fcb6bf20cefc0d65c",
+  "prompts": {},
+  "sessions": {
+    "s_033e42d67b5d30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "262b9ef8-ab87-49b3-ae48-5ca5ace5a68f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Eric Butler <eric@codebutler.com>"
+    }
+  }
+}
