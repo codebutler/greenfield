@@ -724,6 +724,9 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
       this.focusedSurface.loseFocus()
       this.focusedSurface = undefined
     }
+    // Same as notifyKeyboardFocusOut: the next notifyKey resyncs Caps/Num Lock,
+    // which may have changed while a non-Wayland window owned the keyboard.
+    this.needFocusInit = true
   }
 
   dropFocus(): void {
@@ -815,6 +818,14 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
     this.focusedSurface = desktopSurface
     desktopSurface.surface.resource.addDestroyListener(this.focusSurfaceDestroyListener)
     this.focusedSurface.gainFocus()
+  }
+
+  forgetDesktopSurface(desktopSurface: DesktopSurface): void {
+    if (this.focusedSurface !== desktopSurface) {
+      return
+    }
+    desktopSurface.surface.resource.removeDestroyListener(this.focusSurfaceDestroyListener)
+    this.focusedSurface = undefined
   }
 
   private activateNextFocus() {

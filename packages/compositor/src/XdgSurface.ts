@@ -19,7 +19,6 @@ import {
   XdgPopupResource,
   XdgPositionerConstraintAdjustment,
   XdgPositionerResource,
-  XdgSurfaceError,
   XdgSurfaceRequests,
   XdgSurfaceResource,
   XdgToplevelResource,
@@ -228,9 +227,14 @@ export default class XdgSurface implements XdgSurfaceRequests {
     this.configureList = this.configureList.filter((configure) => configure.serial > serial)
 
     if (configure === undefined) {
-      this.session.logger.warn(`Client protocol error. Wrong configure serial ${serial}`)
-      resource.postError(XdgWmBaseError.invalidSurfaceState, `Client protocol error. Wrong configure serial ${serial}`)
-      return undefined
+      // Xwayland (sommelier -X) acks a serial that isn't in this surface's
+      // list: either we accepted its first buffer before the configure was
+      // recorded, or it reused a serial from a just-destroyed sibling
+      // toplevel. Killing the client here takes down the whole X server
+      // (`Wrong configure serial` → Broken pipe). Ignore the unknown ack.
+      this.session.logger.warn(`Ignoring unknown configure serial ${serial}`)
+      this.configured = true
+      return this.configureList[this.configureList.length - 1]
     }
 
     this.configured = true
@@ -238,14 +242,15 @@ export default class XdgSurface implements XdgSurfaceRequests {
   }
 
   commit(): boolean {
-    if (this.surface.state.buffer && !this.configured) {
-      this.session.logger.warn('Client protocol error. xdg_surface has never been configured.')
-      this.resource.postError(
-        XdgSurfaceError.unconfiguredBuffer,
-        'Client protocol error. xdg_surface has never been configured.',
-      )
-      return true
-    }
+    // Xwayland (via sommelier -X) attaches a buffer in the same virtio-wl
+    // burst as the initial null commit, before it has dispatched the
+    // compositor's first xdg_surface.configure. Strict xdg-shell would
+    // postError(unconfiguredBuffer) here and kill the X server (`failed to
+    // read Wayland events: Broken pipe`). We skip that error. Do NOT mark
+    // `configured` here — the real ack still has to land in
+    // handleAckConfigure so serial tracking stays coherent (an earlier
+    // revision set configured=true, which made the next toplevel ack
+    // `Wrong configure serial` and tore down XChat's Network List).
 
     if (this.hasNextGeometry && this.nextGeometry) {
       this.surface.updateGeometry(this.nextGeometry)
@@ -256,6 +261,14 @@ export default class XdgSurface implements XdgSurfaceRequests {
   }
 
   scheduleConfigure(pendingSame: boolean, sendConfigure: () => XdgConfigure): void {
+    // First configure must leave the compositor before we return to the
+    // virtio-wl loop. A microtask is too late: Xwayland's attach+commit is
+    // already in the next OUT message of the same burst.
+    if (!this.configured && this.configureIdle === undefined) {
+      this.sendConfigure(sendConfigure)
+      this.session.flush()
+      return
+    }
     if (this.configureIdle !== undefined) {
       if (!pendingSame) {
         return
