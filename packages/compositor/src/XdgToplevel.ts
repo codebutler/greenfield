@@ -90,6 +90,12 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
       this.xdgSurface.surface.unmap()
       this.xdgSurface.configureIdle?.()
       this.xdgSurface.configureList = []
+      // The seat tracks keyboard focus by the wl_surface's destruction, but a
+      // client may destroy only the role (sommelier does when an X window
+      // unmaps) and keep the wl_surface. Forget the dead toplevel here, or the
+      // next focus change "deactivates" it with a configure sent through its
+      // destroyed resources, whose ids the client has already reused.
+      this.session.globals.seat.forgetDesktopSurface(this.desktopSurface)
       if (this.added) {
         this.desktopSurface.removed()
       }

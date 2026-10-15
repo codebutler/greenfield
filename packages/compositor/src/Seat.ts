@@ -820,6 +820,14 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
     this.focusedSurface.gainFocus()
   }
 
+  forgetDesktopSurface(desktopSurface: DesktopSurface): void {
+    if (this.focusedSurface !== desktopSurface) {
+      return
+    }
+    desktopSurface.surface.resource.removeDestroyListener(this.focusSurfaceDestroyListener)
+    this.focusedSurface = undefined
+  }
+
   private activateNextFocus() {
     const nextFocusView = this.session.renderer.topLevelViews
       .reverse()
