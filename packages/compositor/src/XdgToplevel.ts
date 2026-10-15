@@ -18,7 +18,6 @@
 import {
   WlOutputResource,
   WlSeatResource,
-  XdgSurfaceError,
   XdgToplevelRequests,
   XdgToplevelResource,
   XdgToplevelState,
@@ -132,9 +131,20 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
       return
     }
 
-    if (this.xdgSurface.surface.state.buffer === undefined && !this.added) {
+    // Native clients null-commit first (no buffer) so ensureAdded runs and
+    // returns. Rootless Xwayland's next toplevel already has a pixmap
+    // attached (same path as get_xdg_surface-with-buffer). Skipping
+    // ensureAdded there never fires surfaceCreated, so the shell never
+    // shows the window even though set_title ran. Map whenever !added;
+    // only the no-buffer case returns before applying state.
+    if (!this.added) {
+      if (this.xdgSurface.surface.state.buffer !== undefined) {
+        this.session.logger.warn('Mapping xdg_toplevel that already has a buffer (Xwayland rootless next-toplevel)')
+      }
       this.ensureAdded()
-      return
+      if (this.xdgSurface.surface.state.buffer === undefined) {
+        return
+      }
     }
 
     // const geometry = this.xdgSurface.surface.geometry
@@ -157,8 +167,7 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
     //   return
     // }
 
-    const limitsChanged =
-      this.current.minSize !== this.next.minSize || this.current.maxSize !== this.next.maxSize
+    const limitsChanged = this.current.minSize !== this.next.minSize || this.current.maxSize !== this.next.maxSize
     this.current.state = { ...this.next.state }
     this.current.minSize = this.next.minSize
     this.current.maxSize = this.next.maxSize
@@ -197,15 +206,14 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
   }
 
   showWindowMenu(
-    resource: XdgToplevelResource,
+    _resource: XdgToplevelResource,
     _wlSeatResource: WlSeatResource,
     _serial: number,
     _x: number,
     _y: number,
   ): void {
     if (!this.xdgSurface.configured) {
-      this.session.logger.warn('Client protocol error. Surface has not been configured yet.')
-      resource.postError(XdgSurfaceError.notConstructed, 'Client protocol error. Surface has not been configured yet.')
+      this.session.logger.warn('Ignoring show_window_menu on an unconfigured surface')
       return
     }
 
@@ -214,8 +222,7 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
 
   move(resource: XdgToplevelResource, wlSeatResource: WlSeatResource, serial: number): void {
     if (!this.xdgSurface.configured) {
-      this.session.logger.warn('Client protocol error. Surface has not been configured yet.')
-      resource.postError(XdgSurfaceError.notConstructed, 'Client protocol error. Surface has not been configured yet.')
+      this.session.logger.warn('Ignoring xdg_toplevel.move on an unconfigured surface')
       return
     }
     this.desktopSurface.move(serial)
@@ -223,8 +230,7 @@ export default class XdgToplevel implements XdgToplevelRequests, DesktopSurfaceR
 
   resize(resource: XdgToplevelResource, wlSeatResource: WlSeatResource, serial: number, edges: number): void {
     if (!this.xdgSurface.configured) {
-      this.session.logger.warn('Client protocol error. Surface has not been configured yet.')
-      resource.postError(XdgSurfaceError.notConstructed, 'Client protocol error. Surface has not been configured yet.')
+      this.session.logger.warn('Ignoring xdg_toplevel.resize on an unconfigured surface')
       return
     }
 

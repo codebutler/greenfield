@@ -108,14 +108,14 @@ export default class XdgWmBase implements XdgWmBaseRequests {
   getXdgSurface(resource: XdgWmBaseResource, id: number, wlSurfaceResource: WlSurfaceResource): void {
     const surface = /** @type {Surface} */ wlSurfaceResource.implementation as Surface
     if (surface.pendingState.buffer) {
-      resource.postError(
-        XdgWmBaseError.invalidSurfaceState,
-        'Surface had a buffer attached before xdg surface was created.',
-      )
-      this.session.logger.warn(
-        '[client-protocol-error] - Surface had a buffer attached before xdg surface was created.',
-      )
-      return
+      // Xwayland (sommelier -X rootless) attaches the X pixmap to a new
+      // wl_surface BEFORE get_xdg_surface for the next X toplevel — XChat
+      // Network List → main window is the case that showed it. Strict
+      // xdg-shell would postError(invalidSurfaceState) here and disconnect
+      // the whole X server (every X window shares one Wayland client).
+      // Nested Xwayland never hits this: there is one root surface, not
+      // one xdg_toplevel per X window. Warn and continue.
+      this.session.logger.warn('Ignoring buffer attached before xdg_surface (Xwayland rootless next-toplevel)')
     }
 
     const xdgSurfaceResource = new XdgSurfaceResource(resource.client, id, resource.version)

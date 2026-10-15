@@ -35,7 +35,7 @@ class ToplevelDecoration implements ZxdgToplevelDecorationV1Requests {
   // Announce the negotiated mode to the DOM-windows shell. The compositorSurface is
   // derived directly from the toplevel's wl_surface so it works even before the
   // surface is mapped (decoration is negotiated before the first commit).
-  private announce(mode: 'client' | 'server'): void {
+  announce(mode: 'client' | 'server'): void {
     const xdgToplevel = this.toplevel.implementation as XdgToplevel | undefined
     const surface = xdgToplevel?.xdgSurface?.surface
     if (!surface) {
@@ -110,8 +110,11 @@ export default class XdgDecorationManager implements ZxdgDecorationManagerV1Requ
     const decorationResource = new ZxdgToplevelDecorationV1Resource(resource.client, id, resource.version)
     const decoration = new ToplevelDecoration(decorationResource, toplevel, this.session)
     decorationResource.implementation = decoration
-    // Announce a server-side default up front; the client's set_mode (if any) overrides
-    // it, and each negotiated mode is forwarded to the shell via surfaceDecorationModeUpdated.
-    decorationResource.configure(ZxdgToplevelDecorationV1Mode.serverSide)
+    // Clients that bind xdg-decoration are almost always CSD (GTK headerbar).
+    // Announce client-side immediately so a DOM-windows shell can drop its
+    // frame before the first commit. Silent X11 clients never bind, so they
+    // never reach here. set_mode(server) still flips to SSD (wl-eyes).
+    decorationResource.configure(ZxdgToplevelDecorationV1Mode.clientSide)
+    decoration.announce('client')
   }
 }

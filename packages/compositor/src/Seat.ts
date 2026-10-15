@@ -724,6 +724,9 @@ export class Seat implements WlSeatRequests, CompositorSeat, WlDataDeviceRequest
       this.focusedSurface.loseFocus()
       this.focusedSurface = undefined
     }
+    // Same as notifyKeyboardFocusOut: the next notifyKey resyncs Caps/Num Lock,
+    // which may have changed while a non-Wayland window owned the keyboard.
+    this.needFocusInit = true
   }
 
   dropFocus(): void {
